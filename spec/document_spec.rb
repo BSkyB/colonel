@@ -73,7 +73,7 @@ describe Document do
         committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
         message: 'save from Git CMA',
         parents: [],
-        update_ref: 'HEAD'
+        update_ref: 'refs/heads/master'
       }
 
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
@@ -97,8 +97,9 @@ describe Document do
         committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
         message: 'save from Git CMA',
         parents: ['head'],
-        update_ref: 'HEAD'
+        update_ref: 'refs/heads/master'
       }
+
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
       expect(document.save(time)).to eq 'foo'
@@ -142,6 +143,43 @@ describe Document do
       expect(doc.revision).to eq('abcdef')
       expect(doc.content).to eq('foo')
     end
+  end
 
+  describe "listing revisions" do
+    let :time do
+      Time.now
+    end
+
+    let :ref do
+      Struct.new(:target).new('xyz')
+    end
+
+    let :repo do
+      Object.new
+    end
+
+    let :commit do
+      commit = Struct.new(:oid, :message, :author, :time, :parents)
+
+      commit.new('foo', 'hey', 'me', time, [
+        commit.new('bar', 'bye', 'you', time, []),
+        commit.new('baz', 'bye', 'you', time, []),
+      ])
+    end
+
+    it "should list past revisions" do
+      doc = Document.new('test', revision: 'abcdefg', repo: repo)
+
+      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/master').and_return(ref)
+      repo.should_receive(:lookup).with('xyz').and_return(commit)
+
+      history = []
+      doc.history('master') { |cmt| history << cmt}
+
+      expect(history).to eq([
+        {rev: 'foo', message: 'hey', author: 'me', time: time},
+        {rev: 'bar', message: 'bye', author: 'you', time: time}
+      ])
+    end
   end
 end

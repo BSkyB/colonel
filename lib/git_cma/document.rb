@@ -12,23 +12,27 @@ module GitCma
     end
 
     def save(timestamp)
-      oid = repository.write(@content, :blob)
+      parents = (repository.empty? ? [] : [repository.head.target].compact)
+      commit!(@content, parents, 'refs/heads/master', timestamp)
+    end
 
-      index = Rugged::Index.new
-      index.add(path: 'content', oid: oid, mode: 0100644)
-      tree = index.write_tree(repository)
+    # State handling
 
-      author = {email: 'git-cma@example.com', name: 'Git CMA', time: timestamp}
-      options = {
-        tree: tree,
-        author: author,
-        committer: author,
-        message: 'save from Git CMA',
-        parents: (repository.empty? ? [] : [repository.head.target].compact),
-        update_ref: 'HEAD'
-      }
+    def preview!(timestamp)
+      transition!('master', 'preview')
+    end
 
-      @revision = Rugged::Commit.create(repository, options)
+    def publish!(timestamp)
+      transition!('preview', 'published')
+    end
+
+    def transition!(from, to, timestamp)
+      # commit, with parents ref/heads/to, ref/heads/from
+      # update ref/heads/to
+    end
+
+    def rollback!(state)
+      # update ref/heads/published to 1st parent commit
     end
 
     # rev is revision or a version name, defults to HEAD
@@ -42,18 +46,19 @@ module GitCma
       @revision = rev
     end
 
-    def revisions
+    def history(state = nil, stop = nil, &block)
+      rev = if state
+        Rugged::Reference.lookup(repository, "refs/heads/#{state}").target
+      else
+        revision
+      end
 
-    end
-
-    # Versions - named revisions
-
-    def named_versions
-
-    end
-
-    def name_version(name, revision = nil)
-
+      # walk the history
+      commit = repository.lookup(rev)
+      while(commit)
+        yield({ rev: commit.oid, message: commit.message, author: commit.author, time: commit.time })
+        commit = commit.parents.first
+      end
     end
 
     def repository
@@ -68,6 +73,28 @@ module GitCma
 
         doc
       end
+    end
+
+    private
+
+    def commit!(content, parents, ref, timestamp)
+      oid = repository.write(@content, :blob)
+
+      index = Rugged::Index.new
+      index.add(path: 'content', oid: oid, mode: 0100644)
+      tree = index.write_tree(repository)
+
+      author = {email: 'git-cma@example.com', name: 'Git CMA', time: timestamp}
+      options = {
+        tree: tree,
+        author: author,
+        committer: author,
+        message: 'save from Git CMA',
+        parents: parents,
+        update_ref: ref
+      }
+
+      @revision = Rugged::Commit.create(repository, options)
     end
   end
 end
