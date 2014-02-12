@@ -172,11 +172,11 @@ describe Document do
     it "should list past revisions" do
       doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/master').and_return(ref)
+      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
       repo.should_receive(:lookup).with('xyz').and_return(commit)
 
       history = []
-      doc.history('master') { |cmt| history << cmt}
+      doc.history('preview') { |cmt| history << cmt}
 
       expect(history).to eq([
         {rev: 'foo', message: 'hey', author: 'me', time: time},

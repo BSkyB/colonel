@@ -48,14 +48,20 @@ module GitCma
         revision
       end
 
+      results = []
+
       # walk the history
       commit = repository.lookup(rev)
       while(commit)
-        yield({ rev: commit.oid, message: commit.message, author: commit.author, time: commit.time })
+        results << { rev: commit.oid, message: commit.message, author: commit.author, time: commit.time }
+        yield results.last if block_given?
+
         break if commit.parents.length < 2 && state != 'master'
 
         commit = commit.parents.first
       end
+
+      results unless block_given?
     end
 
     def repository
