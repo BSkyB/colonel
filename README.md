@@ -1,4 +1,4 @@
-#Git::Cma
+# Git content storage
 
 Git backed content storage library for ruby. Supports versioned document storage with publishing workflow
 (currently draft -> preview -> published).
