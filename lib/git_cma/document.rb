@@ -13,22 +13,17 @@ module GitCma
 
     def save(timestamp)
       parents = (repository.empty? ? [] : [repository.head.target].compact)
-      commit!(@content, parents, 'refs/heads/master', timestamp)
+      commit!(@content, parents, 'refs/heads/master', 'save from git CMA', timestamp)
     end
 
     # State handling
 
     def preview!(timestamp)
-      transition!('master', 'preview')
+      transition!('master', 'preview', 'preview from git CMA', timestamp)
     end
 
     def publish!(timestamp)
-      transition!('preview', 'published')
-    end
-
-    def transition!(from, to, timestamp)
-      # commit, with parents ref/heads/to, ref/heads/from
-      # update ref/heads/to
+      transition!('preview', 'published', 'publish from git CMA', timestamp)
     end
 
     def rollback!(state)
@@ -57,6 +52,8 @@ module GitCma
       commit = repository.lookup(rev)
       while(commit)
         yield({ rev: commit.oid, message: commit.message, author: commit.author, time: commit.time })
+        break if commit.parents.length < 2 && state != 'master'
+
         commit = commit.parents.first
       end
     end
@@ -77,7 +74,18 @@ module GitCma
 
     private
 
-    def commit!(content, parents, ref, timestamp)
+    def transition!(from, to, message, timestamp)
+      # commit, with parents ref/heads/to, ref/heads/from
+      from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
+      to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+
+      from_sha = from_ref.target
+      to_sha = to_ref.target if to_ref
+
+      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", message, timestamp)
+    end
+
+    def commit!(content, parents, ref, message, timestamp)
       oid = repository.write(@content, :blob)
 
       index = Rugged::Index.new
@@ -89,7 +97,7 @@ module GitCma
         tree: tree,
         author: author,
         committer: author,
-        message: 'save from Git CMA',
+        message: message,
         parents: parents,
         update_ref: ref
       }
