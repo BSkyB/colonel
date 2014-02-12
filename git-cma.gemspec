@@ -4,8 +4,8 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'git_cma/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "git-cma"
-  spec.version       = Git::Cma::VERSION
+  spec.name          = "git_cma"
+  spec.version       = GitCma::VERSION
   spec.authors       = ["Viktor Charypar"]
   spec.email         = ["viktor.charypar@red-badger.com"]
   spec.summary       = %q{Git-backed document storage with versioning}
