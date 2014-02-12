@@ -21,7 +21,7 @@ require 'git_cma'
 include GitCma
 ```
 
-### Create and edit a document
+### Create or open and edit a document
 
 To create a new document named `test_document`
 
@@ -42,6 +42,15 @@ doc.save(Time.now)
 
 The document now has two versions. Every save creates a version. All saves
 create begin as a draft.
+
+To open the document later do
+
+```ruby
+Document.open('test_document')
+```
+
+### Open an existing document
+
 
 ### Promoting draft to preview and preview to publish
 
