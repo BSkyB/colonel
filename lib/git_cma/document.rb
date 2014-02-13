@@ -18,14 +18,6 @@ module GitCma
 
     # State handling
 
-    def preview!(timestamp)
-      promote!('master', 'preview', 'preview from git CMA', timestamp)
-    end
-
-    def publish!(timestamp)
-      promote!('preview', 'published', 'publish from git CMA', timestamp)
-    end
-
     def rollback!(state)
       # update ref/heads/published to 1st parent commit
     end
@@ -72,6 +64,51 @@ module GitCma
       results unless block_given?
     end
 
+    def promote!(from, to, message, timestamp)
+      # commit, with parents ref/heads/to, ref/heads/from
+      from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
+      to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+
+      from_sha = from_ref.target
+      to_sha = to_ref.target if to_ref
+
+      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", message, timestamp)
+    end
+
+    def rollback!(state)
+      ref = Rugged::Reference.lookup(repository, "refs/heads/#{state}")
+      sha = ref.target if ref
+
+      commit = repository.lookup(sha)
+
+      if commit.parents.length < 2
+        ref.delete!
+        return nil
+      end
+
+      parent = commit.parents.first.oid
+      ref.set_target(parent)
+
+      parent
+    end
+
+    # is this commit reachable as a direct ancestor of the given revision
+    # i.e. for "published", was this revision merged into published
+    def has_been_promoted?(to, rev = nil)
+      rev ||= revision
+      ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+      return false unless ref
+
+      start = ref.target
+
+      commit = repository.lookup(start)
+      has_ancestor?(commit, :first) do |bc|
+        has_ancestor?(bc.parents.last, :last) do |ac|
+          ac && ac.oid == rev
+        end
+      end
+    end
+
     def repository
       @repo ||= Rugged::Repository.init_at("storage/#{name}", :bare)
     end
@@ -86,32 +123,7 @@ module GitCma
       end
     end
 
-    # is this commit reachable from the given revision
-    # i.e. for "published", was this revision merged into published
-    def has_been_promoted?(to, rev)
-      ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
-      start = ref.target
-
-      commit = repository.lookup(start)
-      has_ancestor?(commit, :first) do |bc|
-        has_ancestor?(bc.parents.last, :last) do |ac|
-          ac && ac.oid == rev
-        end
-      end
-    end
-
     private
-
-    def promote!(from, to, message, timestamp)
-      # commit, with parents ref/heads/to, ref/heads/from
-      from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
-      to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
-
-      from_sha = from_ref.target
-      to_sha = to_ref.target if to_ref
-
-      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", message, timestamp)
-    end
 
     def has_ancestor?(start, update, &block)
       while start

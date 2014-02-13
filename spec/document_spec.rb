@@ -247,7 +247,7 @@ describe Document do
       Time.now
     end
 
-    describe "saving as preview" do
+    describe "promoting" do
       it "should commit with parents from master and preview and update preview" do
         repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
 
@@ -270,7 +270,7 @@ describe Document do
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.preview!(time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', 'preview from git CMA', time)).to eq 'foo'
       end
 
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
@@ -295,59 +295,7 @@ describe Document do
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.preview!(time)).to eq 'foo'
-      end
-    end
-
-    describe "publishing" do
-      it "should commit with parents from published and preview and update published" do
-        repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
-
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(ref1)
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/published').and_return(ref2)
-
-        Rugged::Index.should_receive(:new).and_return index
-
-        index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        index.should_receive(:write_tree).with(repo).and_return 'foo'
-
-        options = {
-          tree: 'foo',
-          author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          message: 'publish from git CMA',
-          parents: ['xyz2', 'xyz1'],
-          update_ref: 'refs/heads/published'
-        }
-
-        Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
-
-        expect(document.publish!(time)).to eq 'foo'
-      end
-
-      it "should commit with parents from preview and published and create published if it doesn't exist" do
-        repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
-
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(ref1)
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/published').and_return(nil)
-
-        Rugged::Index.should_receive(:new).and_return index
-
-        index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        index.should_receive(:write_tree).with(repo).and_return 'foo'
-
-        options = {
-          tree: 'foo',
-          author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          message: 'publish from git CMA',
-          parents: ['xyz1'],
-          update_ref: 'refs/heads/published'
-        }
-
-        Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
-
-        expect(document.publish!(time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', 'preview from git CMA', time)).to eq 'foo'
       end
     end
 
@@ -377,7 +325,7 @@ describe Document do
               commit.new('d3', 'x', 'x', time, [d2])
             ])
           ])
-              end
+      end
 
       let :publish_commit do
         commit = Struct.new(:oid, :message, :author, :time, :parents)
@@ -415,8 +363,52 @@ describe Document do
     end
 
     describe "rolling back" do
+      let :time do
+        Time.now
+      end
+
+      let :ref do
+        Struct.new(:target).new('xyz')
+      end
+
+      let :repo do
+        Object.new
+      end
+
+      let :preview_commit do
+        commit = Struct.new(:oid, :message, :author, :time, :parents)
+
+        d2 = commit.new('d2', 'x', 'x', time, [
+          commit.new('d1', 'x', 'x', time, [])
+        ])
+
+        commit.new('p2', 'x', 'x', time, [
+          commit.new('p1', 'x', 'x', time, [d2]),
+          commit.new('d4', 'x', 'x', time, [
+            commit.new('d3', 'x', 'x', time, [d2])
+          ])
+        ])
+      end
+
       it "should find given branch head's left parent and update the ref to it" do
-        pending
+        doc = Document.new('test', revision: 'foo', repo: repo)
+
+        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.stub(:lookup).with('xyz').and_return(preview_commit)
+        ref.should_receive(:set_target).with('p1')
+
+        expect(doc.rollback!('preview')).to eq('p1')
+      end
+
+      it "should find given branch head's and remove it if it doesn't have a parent" do
+        doc = Document.new('test', revision: 'foo', repo: repo)
+
+        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.stub(:lookup).with('xyz').and_return(preview_commit.parents[0])
+
+        ref.should_receive(:delete!)
+
+        expect(doc.rollback!('preview')).to be_nil
       end
     end
   end
