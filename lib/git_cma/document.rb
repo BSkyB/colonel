@@ -86,6 +86,20 @@ module GitCma
       end
     end
 
+    # is this commit reachable from the given revision
+    # i.e. for "published", was this revision merged into published
+    def has_been_promoted?(to, rev)
+      ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+      start = ref.target
+
+      commit = repository.lookup(start)
+      has_ancestor?(commit, :first) do |bc|
+        has_ancestor?(bc.parents.last, :last) do |ac|
+          ac && ac.oid == rev
+        end
+      end
+    end
+
     private
 
     def promote!(from, to, message, timestamp)
@@ -97,6 +111,17 @@ module GitCma
       to_sha = to_ref.target if to_ref
 
       commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", message, timestamp)
+    end
+
+    def has_ancestor?(start, update, &block)
+      while start
+        return true if yield(start)
+        break if start.parents.length < 2
+
+        start = start.parents.send(update)
+      end
+
+      return false
     end
 
     def commit!(content, parents, ref, message, timestamp)

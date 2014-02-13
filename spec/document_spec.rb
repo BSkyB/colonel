@@ -351,6 +351,69 @@ describe Document do
       end
     end
 
+    describe "checking future states" do
+      let :time do
+        Time.now
+      end
+
+      let :ref do
+        Struct.new(:target).new('xyz')
+      end
+
+      let :repo do
+        Object.new
+      end
+
+      let :preview_commit do
+        commit = Struct.new(:oid, :message, :author, :time, :parents)
+
+        d2 = commit.new('d2', 'x', 'x', time, [
+          commit.new('d1', 'x', 'x', time, [])
+        ])
+
+          commit.new('p2', 'x', 'x', time, [
+            commit.new('p1', 'x', 'x', time, [d2]),
+            commit.new('d4', 'x', 'x', time, [
+              commit.new('d3', 'x', 'x', time, [d2])
+            ])
+          ])
+              end
+
+      let :publish_commit do
+        commit = Struct.new(:oid, :message, :author, :time, :parents)
+        commit.new('pp1', 'x', 'x', time, [preview_commit])
+      end
+
+      it "should check whether a draft was promoted to preview" do
+        doc = Document.new('test', revision: 'abcdefg', repo: repo)
+
+        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.stub(:lookup).with('xyz').and_return(preview_commit)
+
+        expect(doc.has_been_promoted?('preview', 'd1')).to be_false
+        expect(doc.has_been_promoted?('preview', 'd2')).to be_true
+        expect(doc.has_been_promoted?('preview', 'd3')).to be_false
+        expect(doc.has_been_promoted?('preview', 'd4')).to be_true
+        expect(doc.has_been_promoted?('preview', 'd5')).to be_false
+      end
+
+      it "should check whether a draft was promoted to published" do
+        doc = Document.new('test', revision: 'abcdefg', repo: repo)
+
+        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/published').and_return(ref)
+        repo.stub(:lookup).with('xyz').and_return(publish_commit)
+
+        expect(doc.has_been_promoted?('published', 'd1')).to be_false
+        expect(doc.has_been_promoted?('published', 'd2')).to be_false
+        expect(doc.has_been_promoted?('published', 'd3')).to be_false
+        expect(doc.has_been_promoted?('published', 'd4')).to be_true
+        expect(doc.has_been_promoted?('published', 'd5')).to be_false
+
+        expect(doc.has_been_promoted?('published', 'p1')).to be_false
+        expect(doc.has_been_promoted?('published', 'p2')).to be_true
+      end
+    end
+
     describe "rolling back" do
       it "should find given branch head's left parent and update the ref to it" do
         pending
