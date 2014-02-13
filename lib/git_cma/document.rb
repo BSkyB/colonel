@@ -13,17 +13,17 @@ module GitCma
 
     def save(timestamp)
       parents = (repository.empty? ? [] : [repository.head.target].compact)
-      commit!(@content, parents, 'refs/heads/master', 'save from git CMA', timestamp)
+      @revision = commit!(@content, parents, 'refs/heads/master', 'save from git CMA', timestamp)
     end
 
     # State handling
 
     def preview!(timestamp)
-      transition!('master', 'preview', 'preview from git CMA', timestamp)
+      promote!('master', 'preview', 'preview from git CMA', timestamp)
     end
 
     def publish!(timestamp)
-      transition!('preview', 'published', 'publish from git CMA', timestamp)
+      promote!('preview', 'published', 'publish from git CMA', timestamp)
     end
 
     def rollback!(state)
@@ -31,10 +31,17 @@ module GitCma
     end
 
     # rev is revision or a version name, defults to HEAD
-    def load(rev = nil)
+    def load!(rev = nil)
       rev ||= repository.head.target
 
-      tree = repository.lookup(rev).tree
+      begin
+        rev_obj = repository.lookup(rev)
+      rescue Rugged::InvalidError
+        rev = Rugged::Reference.lookup(repository, "refs/heads/#{rev}").target
+        rev_obj = repository.lookup(rev)
+      end
+
+      tree = rev_obj.tree
       file = repository.lookup(tree.first[:oid]).read_raw
 
       @content = file.data
@@ -43,14 +50,15 @@ module GitCma
 
     def history(state = nil, stop = nil, &block)
       rev = if state
-        Rugged::Reference.lookup(repository, "refs/heads/#{state}").target
+        ref = Rugged::Reference.lookup(repository, "refs/heads/#{state}")
+        ref.target if ref
       else
         revision
       end
 
       results = []
+      return results unless rev
 
-      # walk the history
       commit = repository.lookup(rev)
       while(commit)
         results << { rev: commit.oid, message: commit.message, author: commit.author, time: commit.time }
@@ -72,7 +80,7 @@ module GitCma
       def open(name, rev = nil)
         repo = Rugged::Repository.new("storage/#{name}")
         doc = Document.new(name, repo: repo)
-        doc.load
+        doc.load!
 
         doc
       end
@@ -80,7 +88,7 @@ module GitCma
 
     private
 
-    def transition!(from, to, message, timestamp)
+    def promote!(from, to, message, timestamp)
       # commit, with parents ref/heads/to, ref/heads/from
       from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
       to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")

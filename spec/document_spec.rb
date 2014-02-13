@@ -127,7 +127,11 @@ describe Document do
       Object.new
     end
 
-    it "opening a document should open the repository and get HEAD" do
+    let :document do
+      Document.new('test', repo: repo)
+    end
+
+    it "should open the repository and get HEAD" do
       Rugged::Repository.should_receive(:new).with("storage/test").and_return(repo)
       repo.should_receive(:head).and_return Struct.new(:target).new('abcdef')
       repo.should_receive(:lookup).with('abcdef').and_return(commit)
@@ -142,6 +146,38 @@ describe Document do
       expect(doc.repository).to eq(repo)
       expect(doc.revision).to eq('abcdef')
       expect(doc.content).to eq('foo')
+    end
+
+    it "should load a given revision from sha" do
+      repo.should_receive(:lookup).with('abcde').and_return(commit)
+      commit.should_receive(:tree).and_return(tree)
+      tree.should_receive(:first).and_return({oid: 'foo', name: 'content'})
+
+      repo.should_receive(:lookup).with('foo').and_return(file)
+      file.should_receive(:read_raw).and_return(robj)
+      robj.should_receive(:data).and_return('data')
+
+      expect(document.load!('abcde')).to eq('abcde')
+      expect(document.revision).to eq('abcde')
+      expect(document.content).to eq('data')
+    end
+
+    it "should load a given revision from state" do
+      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(Struct.new(:target).new('abcde'))
+
+      repo.should_receive(:lookup).with('preview').and_raise(Rugged::InvalidError)
+
+      repo.should_receive(:lookup).with('abcde').and_return(commit)
+      commit.should_receive(:tree).and_return(tree)
+      tree.should_receive(:first).and_return({oid: 'foo', name: 'content'})
+
+      repo.should_receive(:lookup).with('foo').and_return(file)
+      file.should_receive(:read_raw).and_return(robj)
+      robj.should_receive(:data).and_return('data')
+
+      expect(document.load!('preview')).to eq('abcde')
+      expect(document.revision).to eq('abcde')
+      expect(document.content).to eq('data')
     end
   end
 
@@ -184,6 +220,7 @@ describe Document do
       ])
     end
   end
+
 
   describe "states" do
     let :repo do
