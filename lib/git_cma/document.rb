@@ -72,11 +72,11 @@ module GitCma
     # Returns an array of revision hashes if no block was given, otherwise yields every revision
     # to the block and returns nothing.
     def history(state = nil, &block)
-      rev = revision
-
-      if state
+      rev = if state
         ref = Rugged::Reference.lookup(repository, "refs/heads/#{state}")
         rev = ref.target if ref
+      else
+        revision
       end
 
       results = []
