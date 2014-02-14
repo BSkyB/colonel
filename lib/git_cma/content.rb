@@ -6,9 +6,10 @@ module GitCma
   # Public: Extends OpenStruct to dynamically convert saved hashes to structs and support JSON (de)serialization.
   class Content < OpenStruct
 
-    def initialize(opts)
+    def initialize(opts = {})
       if opts.is_a?(Array)
         @list = opts.map { |v| wrap(v) }
+        @table = {}
       elsif opts.is_a?(Hash)
         @table = {}
         for k,v in opts

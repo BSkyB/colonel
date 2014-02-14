@@ -45,6 +45,12 @@ describe Content do
       expect(c[2].a[0]).to eq('alien')
       expect(c[2].a[1]).to eq('shit')
     end
+
+    it "should not whine when a key doesn't exist" do
+      c = Content.new([])
+
+      expect(c.foobar).to be_nil
+    end
   end
 
   describe "serialization" do
