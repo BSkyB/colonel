@@ -2,6 +2,9 @@ require 'ostruct'
 
 module GitCma
   # Public: Structured content storage. Uses `Document` for versioning and publishing pipeline support.
+  # Content can be any data structure composed of hashes and arrays. It will be accessible through method
+  # calls (similar to OpenStruct which it is based on). When saved, content item will serialize the content
+  # to JSON and save it. Loading a content item automatically constructs the data structure from the JSON.
   class ContentItem
     attr_reader :document, :id
 
@@ -27,6 +30,8 @@ module GitCma
     def save!(timestamp)
       document.content = @content.to_json
       document.save!(timestamp)
+
+      # index in elastic search
     end
 
     def load!(rev)
@@ -79,10 +84,36 @@ module GitCma
     end
 
     class << self
-
       def open(id, rev = nil)
         doc = Document.open(id, rev)
         new(nil, document: doc)
+      end
+
+      def all(state = 'master')
+        # query for all documents in a given state
+      end
+
+      def search(query)
+        query = {} if query.is_a?(String)
+
+        # talk to elastic search
+      end
+
+      private
+
+      def default_mappings
+        # id, revision, state, updated_at
+      end
+
+      # Internal: idempotently create the ES index
+      def ensure_index!
+        unless es_client.indices.exists index: 'git-cma-content'
+          es_client.indices.create index: 'git-cma-content', body: {mappings: default_mappings}
+        end
+      end
+
+      def es_client
+        @es_client ||= ::Elasticsearch::Client.new log: true
       end
     end
   end

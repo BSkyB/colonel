@@ -1,4 +1,5 @@
 require "rugged"
+require 'elasticsearch'
 require "git_cma/version"
 
 require "git_cma/document"

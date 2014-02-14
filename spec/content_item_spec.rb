@@ -1,6 +1,10 @@
 require 'spec_helper'
 
 describe ContentItem do
+  before :each do
+    ContentItem.stub(:setup_search!)
+  end
+
   describe "creating" do
     it "should create item with content from hash" do
       c = ContentItem.new(foo: 'foo', bar: 'bar')
@@ -127,6 +131,44 @@ describe ContentItem do
       con.document.should_receive(:rollback!).with('x').and_return('foo')
 
       expect(con.rollback!('x')).to eq('foo')
+    end
+  end
+
+  describe "search support" do
+    let :client do
+      Object.new
+    end
+
+    let :indices do
+      Object.new
+    end
+
+    it "should create index if it doesn't exist" do
+      ContentItem.stub(:es_client).and_return(client)
+      client.stub(:indices).and_return(indices)
+
+      ContentItem.stub(:default_mappings).and_return('foo')
+
+      indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
+      indices.should_receive(:create).with(index: 'git-cma-content', body: { mappings: 'foo' }).and_return(true)
+
+      ContentItem.send :ensure_index!
+    end
+
+    it "should not create index if it exists" do
+      ContentItem.stub(:es_client).and_return(client)
+      client.stub(:indices).and_return(indices)
+
+      ContentItem.stub(:default_mappings).and_return('foo')
+
+      indices.should_receive(:exists).with(index: 'git-cma-content').and_return(true)
+      indices.should_not_receive(:create)
+
+      ContentItem.send :ensure_index!
+    end
+
+    it "should have the right default mappings" do
+      pending
     end
   end
 end
