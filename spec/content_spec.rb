@@ -53,6 +53,18 @@ describe Content do
     end
   end
 
+  describe "update" do
+    it "should allow mass updating content" do
+      c = Content.new(foo: 'foo', bar: 'bar', baz: 'baz')
+
+      c.update(bar: 'xxx')
+
+      expect(c.foo).to eq('foo')
+      expect(c.bar).to eq('xxx')
+      expect(c.baz).to eq('baz')
+    end
+  end
+
   describe "serialization" do
     it "should serialize to JSON" do
       c = Content.new([{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}])

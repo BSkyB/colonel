@@ -19,6 +19,17 @@ module GitCma
       end
     end
 
+    def update(opts)
+      if opts.is_a?(Array)
+        @list = opts # overwrite array
+      elsif opts.is_a?(Hash)
+        for k,v in opts # merge hash
+          @table[k.to_sym] = wrap(v)
+          new_ostruct_member(k)
+        end
+      end
+    end
+
     def [](i)
       @list[i]
     end

@@ -33,6 +33,28 @@ describe ContentItem do
     end
   end
 
+  describe "updating" do
+    it "should allow mass updating content" do
+      con = ContentItem.new(foo: 'foo', bar: 'bar', baz: 'baz')
+
+      con.update(bar: 'xxx')
+
+      expect(con.foo).to eq('foo')
+      expect(con.bar).to eq('xxx')
+      expect(con.baz).to eq('baz')
+    end
+
+    it "should forward delete_field to content" do
+      con = ContentItem.new(foo: 'foo', bar: 'bar', baz: 'baz')
+
+      con.delete_field(:foo)
+
+      expect(con.foo).to be_nil
+      expect(con.bar).to eq('bar')
+      expect(con.baz).to eq('baz')
+    end
+  end
+
   describe "persisting" do
     let :time do
       Time.now

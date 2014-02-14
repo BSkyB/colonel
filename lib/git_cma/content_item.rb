@@ -16,6 +16,14 @@ module GitCma
       @id = @document.name
     end
 
+    def update(content)
+      @content.update(content)
+    end
+
+    def delete_field(field)
+      @content.delete_field(field)
+    end
+
     def save!(timestamp)
       document.content = @content.to_json
       document.save!(timestamp)
