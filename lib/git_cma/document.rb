@@ -23,7 +23,7 @@ module GitCma
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
     def initialize(name = nil, opts = {})
-      @name = name || SecureRandom.hex(8) # FIXME check that the content id isn't already used
+      @name = name || SecureRandom.hex(16) # FIXME check that the content id isn't already used
       @repo = opts[:repo]
       @content = opts[:content]
     end

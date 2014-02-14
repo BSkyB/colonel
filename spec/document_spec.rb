@@ -12,7 +12,7 @@ describe Document do
 
     it "should have a random name" do
       document = Document.new
-      expect(document.name).to match /^[0-9a-f]{16}$/
+      expect(document.name).to match /^[0-9a-f]{32}$/
     end
 
     it "should have a name if specified" do
