@@ -78,7 +78,7 @@ describe Document do
 
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.save(time)).to eq 'foo'
+      expect(document.save!(time)).to eq 'foo'
       expect(document.revision).to eq 'foo'
     end
 
@@ -102,7 +102,7 @@ describe Document do
 
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.save(time)).to eq 'foo'
+      expect(document.save!(time)).to eq 'foo'
     end
   end
 
