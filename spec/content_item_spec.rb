@@ -6,6 +6,7 @@ describe ContentItem do
   end
 
   describe "creating" do
+
     it "should create item with content from hash" do
       c = ContentItem.new(foo: 'foo', bar: 'bar')
 
@@ -68,6 +69,10 @@ describe ContentItem do
       Struct.new(:name, :content).new('axbcd', '{"foo":"bar"}')
     end
 
+    before do
+      ContentItem.any_instance.stub(:index!)
+    end
+
     it "should serialize and save content" do
       con = ContentItem.new(key: 'value', another: ['array'])
 
@@ -98,6 +103,10 @@ describe ContentItem do
   end
 
   describe "document API" do
+    before do
+      ContentItem.any_instance.stub(:index!)
+    end
+
     it "should delegate revision" do
       con = ContentItem.new(nil)
       con.document.should_receive(:revision).and_return('xyz')
@@ -134,41 +143,135 @@ describe ContentItem do
     end
   end
 
-  describe "search support" do
+  describe "search" do
     let :client do
       Object.new
     end
 
-    let :indices do
-      Object.new
-    end
-
-    it "should create index if it doesn't exist" do
+    before do
       ContentItem.stub(:es_client).and_return(client)
-      client.stub(:indices).and_return(indices)
-
-      ContentItem.stub(:default_mappings).and_return('foo')
-
-      indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
-      indices.should_receive(:create).with(index: 'git-cma-content', body: { mappings: 'foo' }).and_return(true)
-
-      ContentItem.send :ensure_index!
     end
 
-    it "should not create index if it exists" do
-      ContentItem.stub(:es_client).and_return(client)
-      client.stub(:indices).and_return(indices)
+    describe "suppport" do
+      let :indices do
+        Object.new
+      end
 
-      ContentItem.stub(:default_mappings).and_return('foo')
+      it "should create index if it doesn't exist" do
+        client.stub(:indices).and_return(indices)
 
-      indices.should_receive(:exists).with(index: 'git-cma-content').and_return(true)
-      indices.should_not_receive(:create)
+        indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
+        indices.should_receive(:create).with(index: 'git-cma-content', body: {
+          mappings: {
+            content_item: ContentItem::ITEM_MAPPINGS,
+            content_item_rev: ContentItem::DEFAULT_MAPPINGS
+          }
+        }).and_return(true)
 
-      ContentItem.send :ensure_index!
+        ContentItem.send :ensure_index!
+      end
+
+      it "should not create index if it exists" do
+        client.stub(:indices).and_return(indices)
+
+        indices.should_receive(:exists).with(index: 'git-cma-content').and_return(true)
+        indices.should_not_receive(:create)
+
+        ContentItem.send :ensure_index!
+      end
+
+      it "should have the right item mappings" do
+        mappings = {
+          properties: {
+            id: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            state: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            updated_at: {
+              type: 'date'
+            }
+          }
+        }
+
+        expect(ContentItem::ITEM_MAPPINGS).to eq(mappings)
+      end
+
+      it "should have the right default mappings" do
+        mappings = {
+          _source: { enabled: false },
+          _parent: { type: :content_item },
+          properties: {
+            id: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            revision: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            state: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            updated_at: {
+              type: 'date'
+            }
+          }
+        }
+
+        expect(ContentItem::DEFAULT_MAPPINGS).to eq(mappings)
+      end
     end
 
-    it "should have the right default mappings" do
-      pending
+    describe "indexing" do
+      let :time do
+        Time.now
+      end
+
+      it "should index the document" do
+        ci = ContentItem.new(body: "foobar")
+
+        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time }
+
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+
+        ci.index!(state: 'master', updated_at: time, revision: 'yzw')
+      end
+
+      it "should index the document when saved" do
+        ci = ContentItem.new(body: "foobar")
+        ci.document.should_receive(:save!).and_return('xyz1')
+
+        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time }
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
+
+
+        expect(ci.save!(time)).to eq('xyz1')
+      end
+
+      it "should index the document when promoted" do
+        ci = ContentItem.new(body: "foobar")
+        ci.document.should_receive(:promote!).and_return('xyz1')
+
+        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time }
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+
+        expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
+      end
+    end
+
     end
   end
 end

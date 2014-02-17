@@ -29,9 +29,33 @@ module GitCma
 
     def save!(timestamp)
       document.content = @content.to_json
-      document.save!(timestamp)
+      sha = document.save!(timestamp)
 
-      # index in elastic search
+      index!(state: 'master', updated_at: timestamp, revision: sha)
+
+      sha
+    end
+
+    def index!(opts = {})
+      state = opts[:state] || 'master'
+      updated_at = opts[:updated_at]
+      sha = opts[:revision]
+
+      body = {
+        id: id,
+        revision: sha,
+        state: state,
+        updated_at: updated_at
+      }
+
+      item_id = "#{@id}-#{state}"
+      rev_id = "#{@id}-#{sha}"
+
+      # Index the document
+      self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
+
+      # Index the revision
+      self.class.es_client.index(index: self.class.index_name, type: self.class.revision_type_name.to_s, id: rev_id, parent: item_id, body: body)
     end
 
     def load!(rev)
@@ -52,7 +76,11 @@ module GitCma
     end
 
     def promote!(from, to, message, timestamp)
-      document.promote!(from, to, message, timestamp)
+      sha = document.promote!(from, to, message, timestamp)
+
+      index!(state: to, revision: sha, updated_at: timestamp)
+
+      sha
     end
 
     def has_been_promoted?(to, rev = nil)
@@ -77,7 +105,7 @@ module GitCma
       if args.length < 1
         @content.send meth
       elsif args.length == 1
-        @content.send meth.chomp("="), *args
+        @content.send meth.to_s.chomp("="), *args
       else
         super
       end
@@ -99,22 +127,79 @@ module GitCma
         # talk to elastic search
       end
 
-      private
+      def es_client
+        @es_client ||= ::Elasticsearch::Client.new log: true
+      end
 
-      def default_mappings
-        # id, revision, state, updated_at
+      def item_type_name
+        :content_item
+      end
+
+      def revision_type_name
+        :content_item_rev
+      end
+
+      def index_name
+        'git-cma-content'
       end
 
       # Internal: idempotently create the ES index
       def ensure_index!
-        unless es_client.indices.exists index: 'git-cma-content'
-          es_client.indices.create index: 'git-cma-content', body: {mappings: default_mappings}
+        unless es_client.indices.exists index: index_name
+          body = { mappings: {} }
+          body[:mappings][item_type_name] = ITEM_MAPPINGS
+          body[:mappings][revision_type_name] = DEFAULT_MAPPINGS
+
+          es_client.indices.create index: index_name, body: body
         end
       end
-
-      def es_client
-        @es_client ||= ::Elasticsearch::Client.new log: true
-      end
     end
+
+    # Item mapping, used for listing documents
+    ITEM_MAPPINGS = {
+      properties: {
+        # _id is "{id}-{state}"
+        id: {
+          type: 'string',
+          store: 'yes',
+          index: 'not_analyzed'
+        },
+        state: {
+          type: 'string',
+          store: 'yes',
+          index: 'not_analyzed'
+        },
+        updated_at: {
+          type: 'date'
+        }
+      }
+    }
+
+    # Revision mapping, used for all other types of search through parent-child relation on the item
+    DEFAULT_MAPPINGS = {
+      _source: { enabled: false }, # you only get what you store
+      _parent: { type: item_type_name },
+      properties: {
+        # _id is "{id}-{rev}"
+        id: {
+          type: 'string',
+          store: 'yes',
+          index: 'not_analyzed'
+        },
+        revision: {
+          type: 'string',
+          store: 'yes',
+          index: 'not_analyzed'
+        },
+        state: {
+          type: 'string',
+          store: 'yes',
+          index: 'not_analyzed'
+        },
+        updated_at: {
+          type: 'date'
+        }
+      }
+    }
   end
 end
