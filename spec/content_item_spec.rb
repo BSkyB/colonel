@@ -163,8 +163,8 @@ describe ContentItem do
         indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
         indices.should_receive(:create).with(index: 'git-cma-content', body: {
           mappings: {
-            content_item: ContentItem::ITEM_MAPPINGS,
-            content_item_rev: ContentItem::DEFAULT_MAPPINGS
+            'content_item' => ContentItem::ITEM_MAPPING,
+            'content_item_rev' => ContentItem.send(:default_mapping)
           }
         }).and_return(true)
 
@@ -180,7 +180,7 @@ describe ContentItem do
         ContentItem.send :ensure_index!
       end
 
-      it "should have the right item mappings" do
+      it "should have the right item ITEM_MAPPINGs" do
         mappings = {
           properties: {
             id: {
@@ -197,13 +197,13 @@ describe ContentItem do
           }
         }
 
-        expect(ContentItem::ITEM_MAPPINGS).to eq(mappings)
+        expect(ContentItem::ITEM_MAPPING).to eq(mappings)
       end
 
       it "should have the right default mappings" do
         mappings = {
           _source: { enabled: false },
-          _parent: { type: :content_item },
+          _parent: { type: 'content_item' },
           properties: {
             id: {
               type: 'string',
@@ -226,7 +226,7 @@ describe ContentItem do
           }
         }
 
-        expect(ContentItem::DEFAULT_MAPPINGS).to eq(mappings)
+        expect(ContentItem.send(:default_mapping)).to eq(mappings)
       end
     end
 
@@ -238,7 +238,7 @@ describe ContentItem do
       it "should index the document" do
         ci = ContentItem.new(body: "foobar")
 
-        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time }
+        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time, body: "foobar" }
 
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
@@ -250,7 +250,7 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:save!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time }
+        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time, body: "foobar" }
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
@@ -262,11 +262,25 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:promote!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time }
+        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time, body: "foobar" }
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
+      end
+
+      it "should index a complex the document" do
+        ci = ContentItem.new(title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"})
+
+        body = {
+          id: ci.id, revision: 'yzw', state: 'master', updated_at: time,
+          title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
+        }
+
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+
+        ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
     end
 

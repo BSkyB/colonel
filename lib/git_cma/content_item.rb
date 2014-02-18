@@ -2,9 +2,32 @@ require 'ostruct'
 
 module GitCma
   # Public: Structured content storage. Uses `Document` for versioning and publishing pipeline support.
-  # Content can be any data structure composed of hashes and arrays. It will be accessible through method
-  # calls (similar to OpenStruct which it is based on). When saved, content item will serialize the content
-  # to JSON and save it. Loading a content item automatically constructs the data structure from the JSON.
+  # Content can be any data structure composed of hashes and arrays. It is then accessible through method
+  # calls (similar to OpenStruct which it is based on). When saved, content item serializes the content
+  # to JSON and saves it. Loading a content item automatically constructs the data structure from the JSON.
+  #
+  # You can list and search the content items using the `list` and `search` class methods.
+  #
+  # If you need to customize the search behavior - change the index name, the type name or the attributes indexing,
+  # You will need to inherit the ContentItem class. Let's take an example, an Article class that has a `title`, an
+  # `abstract` a `body` and a `published_at` date.
+  #
+  # ```ruby
+  # class Document
+  #   index_name = 'my_app_index'
+  #   item_type_name = 'article'
+  #
+  #   attributes_mapping do
+  #     {
+  #       title: { type: 'string' },
+  #       abstract: { type: 'string' },
+  #       body: { type: 'string' },
+  #       published_at: { type: 'date' },
+  #     }
+  #   end
+  # end
+  # ```
+  #
   class ContentItem
     attr_reader :document, :id
 
@@ -47,6 +70,8 @@ module GitCma
         state: state,
         updated_at: updated_at
       }
+
+      body = body.merge(@content.plain)
 
       item_id = "#{@id}-#{state}"
       rev_id = "#{@id}-#{sha}"
@@ -170,9 +195,32 @@ module GitCma
 
         res = es_client.search(index: index_name, type: item_type_name.to_s, body: body)
 
-        STDERR << res.inspect
-
         hydrate_hits(res["hits"])
+      end
+
+      # Public: Item type name for elasticsearch
+      def item_type_name(val = nil)
+        @item_type_name = val if val
+        @item_type_name || 'content_item'
+      end
+
+      # Public: Index name in elasticsearch
+      def index_name(val = nil)
+        @index_name = val if val
+        @index_name || 'git-cma-content'
+      end
+
+      def attributes_mapping(&block)
+        extra_properties = yield
+
+        @mapping = default_mapping
+        @mapping[:properties].merge(extra_properties)
+
+        # TODO put mapping
+      end
+
+      def mapping
+        @mapping || default_mapping
       end
 
       # Public: The Elasticsearch client
@@ -180,26 +228,17 @@ module GitCma
         @es_client ||= ::Elasticsearch::Client.new log: false
       end
 
-      # Public: Item type name for elastic search
-      def item_type_name
-        :content_item
-      end
-
-      # Public: Revision type name for elastic search
+      # Internal: Revision type name for elastic search.
       def revision_type_name
-        :content_item_rev
-      end
-
-      def index_name
-        'git-cma-content'
+        item_type_name + "_rev"
       end
 
       # Internal: idempotently create the ES index
       def ensure_index!
         unless es_client.indices.exists index: index_name
           body = { mappings: {} }
-          body[:mappings][item_type_name] = ITEM_MAPPINGS
-          body[:mappings][revision_type_name] = DEFAULT_MAPPINGS
+          body[:mappings][item_type_name] = ITEM_MAPPING
+          body[:mappings][revision_type_name] = mapping
 
           es_client.indices.create index: index_name, body: body
         end
@@ -215,10 +254,39 @@ module GitCma
         # FIXME this should probably be a result set class with Enumerable mixin
         {total: hits["total"], hits: hits["hits"]}
       end
+
+      # Revision mapping, used for all other types of search through parent-child relation on the item
+      def default_mapping
+        {
+          _source: { enabled: false }, # you only get what you store
+          _parent: { type: item_type_name },
+          properties: {
+            # _id is "{id}-{rev}"
+            id: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            revision: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            state: {
+              type: 'string',
+              store: 'yes',
+              index: 'not_analyzed'
+            },
+            updated_at: {
+              type: 'date'
+            }
+          }
+        }
+      end
     end
 
     # Item mapping, used for listing documents
-    ITEM_MAPPINGS = {
+    ITEM_MAPPING = {
       properties: {
         # _id is "{id}-{state}"
         id: {
@@ -227,33 +295,6 @@ module GitCma
         },
         state: {
           type: 'string',
-          index: 'not_analyzed'
-        },
-        updated_at: {
-          type: 'date'
-        }
-      }
-    }
-
-    # Revision mapping, used for all other types of search through parent-child relation on the item
-    DEFAULT_MAPPINGS = {
-      _source: { enabled: false }, # you only get what you store
-      _parent: { type: item_type_name },
-      properties: {
-        # _id is "{id}-{rev}"
-        id: {
-          type: 'string',
-          store: 'yes',
-          index: 'not_analyzed'
-        },
-        revision: {
-          type: 'string',
-          store: 'yes',
-          index: 'not_analyzed'
-        },
-        state: {
-          type: 'string',
-          store: 'yes',
           index: 'not_analyzed'
         },
         updated_at: {
