@@ -117,14 +117,45 @@ module GitCma
         new(nil, document: doc)
       end
 
-      def all(state = 'master')
-        # query for all documents in a given state
+      # Public: List all the content items. Supports filtering by state, sorting and pagination.
+      #
+      # opts  - options hash
+      #         :state - state to filter to
+      #         :sort  - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
+      #                  Wrapped in an array automatically.
+      #         :from  - how many results to skip
+      #         :size  - how many results to return
+      #
+      # Returns the elasticsearch result set
+      def list(opts = {})
+        state = opts[:state] || 'master'
+
+        query = { query: { constant_score: { filter: { term: { state: state } }}}}
+
+        query[:from] = opts[:from] if opts[:from]
+        query[:size] = opts[:size] if opts[:from]
+
+        query[:sort] = opts[:sort] if opts[:sort]
+        query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
+
+
+        res = es_client.search(index: index_name, type: item_type_name.to_s, body: query)
+
+        hits = res["hits"]
+        hits["hits"] = hits["hits"].map do |hit|
+          open(hit["_source"]["id"])
+        end
+
+        {total: hits["total"], hits: hits["hits"]}
       end
 
+      # Search: Generic search support, delegates to elasticsearch.
+      #
+      # query - string, or elastic search query DSL. Forwarded to elasticsearch
+      #
+      # Returns the elasticsearch result set
       def search(query)
-        query = {} if query.is_a?(String)
 
-        # talk to elastic search
       end
 
       def es_client
@@ -161,12 +192,10 @@ module GitCma
         # _id is "{id}-{state}"
         id: {
           type: 'string',
-          store: 'yes',
           index: 'not_analyzed'
         },
         state: {
           type: 'string',
-          store: 'yes',
           index: 'not_analyzed'
         },
         updated_at: {

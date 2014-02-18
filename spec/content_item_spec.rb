@@ -185,12 +185,10 @@ describe ContentItem do
           properties: {
             id: {
               type: 'string',
-              store: 'yes',
               index: 'not_analyzed'
             },
             state: {
               type: 'string',
-              store: 'yes',
               index: 'not_analyzed'
             },
             updated_at: {
@@ -272,6 +270,78 @@ describe ContentItem do
       end
     end
 
+    describe "Listing and searching" do
+      let :results do
+        {"hits" => {"hits" => []}}
+      end
+
+      it "should list all the items" do
+        query = {
+          query: {
+            constant_score: {
+              filter: {
+                term: { state: 'master'}
+              }
+            }
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+
+        ContentItem.list
+      end
+
+      it "should list items by state" do
+        query = {
+          query: {
+            constant_score: {
+              filter: {
+                term: { state: 'preview'}
+              }
+            }
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+
+        ContentItem.list(state: 'preview')
+      end
+
+      it "should list items in a given order" do
+        query = {
+          query: {
+            constant_score: {
+              filter: {
+                term: { state: 'master'}
+              }
+            }
+          },
+          sort: [
+            {updated_at: 'desc'}
+          ]
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+
+        ContentItem.list(sort: {updated_at: 'desc'})
+      end
+
+      it "should limit items and start from a given index" do
+        query = {
+          query: {
+            constant_score: {
+              filter: {
+                term: { state: 'master'}
+              }
+            }
+          },
+          from: 40, size: 20
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+
+        ContentItem.list(from: 40, size: 20)
+      end
     end
   end
 end
