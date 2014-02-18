@@ -342,6 +342,90 @@ describe ContentItem do
 
         ContentItem.list(from: 40, size: 20)
       end
+
+      it "should search with string query" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.search("query")
+      end
+
+      it "should search with DSL query" do
+        body = {
+          query: {
+            match: {
+              id: "abcdef"
+            }
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.search(match: {id: 'abcdef'})
+      end
+
+      it "should sort search" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          },
+          sort: [
+           {updated_at: :desc}
+          ]
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.search("query", sort: {updated_at: :desc})
+      end
+
+      it "should limit and skip" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          },
+          from: 40, size: 20
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.search("query", from: 40, size: 20)
+      end
+
+      it "should search across all version" do
+        body = {
+          query: {
+            has_child: {
+              type: "content_item_rev",
+              query: {
+                query_string: {
+                  query: "query"
+                }
+              }
+            }
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.search("query", revisions: true)
+      end
+    end
+
+    describe "customized mappings" do
+      it "should update mappings on demand" do
+        pending "search"
+      end
+
+      it "should extend mappings with user defined ones" do
+        pending "search"
+      end
     end
   end
 end

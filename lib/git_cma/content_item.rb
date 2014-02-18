@@ -133,7 +133,7 @@ module GitCma
         query = { query: { constant_score: { filter: { term: { state: state } }}}}
 
         query[:from] = opts[:from] if opts[:from]
-        query[:size] = opts[:size] if opts[:from]
+        query[:size] = opts[:size] if opts[:size]
 
         query[:sort] = opts[:sort] if opts[:sort]
         query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
@@ -141,31 +141,51 @@ module GitCma
 
         res = es_client.search(index: index_name, type: item_type_name.to_s, body: query)
 
-        hits = res["hits"]
-        hits["hits"] = hits["hits"].map do |hit|
-          open(hit["_source"]["id"])
-        end
-
-        {total: hits["total"], hits: hits["hits"]}
+        hydrate_hits(res["hits"])
       end
 
-      # Search: Generic search support, delegates to elasticsearch.
+      # Search: Generic search support, delegates to elasticsearch. Searches all documents of type [item_type_name].
+      # If versions option is set to true, returns such documents which have a child matching the query, i.e. versions.
+      # In essence you search through all the versions and get
+      # the documents having a matching version get.
       #
       # query - string, or elastic search query DSL. Forwarded to elasticsearch
-      #
+      # opts  - an options hash
+      #         :revisions - boolean, search across all revisions. Default false.
+      #         :sort - sort specification
+      #         :from - how many results to skip
+      #         :size - how many results to show
       # Returns the elasticsearch result set
-      def search(query)
+      def search(query, opts = {})
+        query = { query_string: { query: query }} if query.is_a?(String)
+        query = { has_child: { type: revision_type_name.to_s, query: query }} if opts[:revisions]
 
+        body = { query: query }
+
+        body[:from] = opts[:from] if opts[:from]
+        body[:size] = opts[:size] if opts[:size]
+
+        body[:sort] = opts[:sort] if opts[:sort]
+        body[:sort] = [body[:sort]] if body[:sort] && !body[:sort].is_a?(Array)
+
+        res = es_client.search(index: index_name, type: item_type_name.to_s, body: body)
+
+        STDERR << res.inspect
+
+        hydrate_hits(res["hits"])
       end
 
+      # Public: The Elasticsearch client
       def es_client
-        @es_client ||= ::Elasticsearch::Client.new log: true
+        @es_client ||= ::Elasticsearch::Client.new log: false
       end
 
+      # Public: Item type name for elastic search
       def item_type_name
         :content_item
       end
 
+      # Public: Revision type name for elastic search
       def revision_type_name
         :content_item_rev
       end
@@ -183,6 +203,17 @@ module GitCma
 
           es_client.indices.create index: index_name, body: body
         end
+      end
+
+      private
+
+      def hydrate_hits(hits)
+        hits["hits"] = hits["hits"].map do |hit|
+          open(hit["_source"]["id"])
+        end
+
+        # FIXME this should probably be a result set class with Enumerable mixin
+        {total: hits["total"], hits: hits["hits"]}
       end
     end
 
