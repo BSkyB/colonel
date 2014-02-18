@@ -73,6 +73,13 @@ describe Content do
       expect(c.to_json).to eq(expected)
     end
 
+    it "should convert to hash or array" do
+      c = Content.new([{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}])
+      expected = [{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}]
+
+      expect(c.plain).to eq(expected)
+    end
+
     it "should parse JSON" do
       c = Content.from_json('[{"a":"a","b":["stuff",{"doge":"wow"}]},"foo",{"a":["alien","shit"]}]')
 

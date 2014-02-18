@@ -38,6 +38,21 @@ module GitCma
       @list[i] = val
     end
 
+    def plain
+      if @list
+        @list.map do |item|
+          item.is_a?(Content) ? item.plain : item
+        end
+      else
+        result = {}
+        @table.each do |k, v|
+          result[k] = v.is_a?(Content) ? v.plain : v
+        end
+
+        result
+      end
+    end
+
     def to_json(state = nil)
       JSON.generate(@list || @table)
     end
