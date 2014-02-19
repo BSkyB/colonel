@@ -172,7 +172,7 @@ module GitCma
       end
 
       # Search: Generic search support, delegates to elasticsearch. Searches all documents of type [item_type_name].
-      # If versions option is set to true, returns such documents which have a child matching the query, i.e. versions.
+      # If history option is set to true, returns such documents which have a child matching the query, i.e. versions.
       # In essence you search through all the versions and get
       # the documents having a matching version get.
       #
@@ -215,14 +215,19 @@ module GitCma
       def attributes_mapping(&block)
         extra_properties = yield
 
-        @mapping = default_mapping
-        @mapping[:properties].merge(extra_properties)
+        @item_mapping = default_item_mapping
+        @item_mapping[:properties] = @item_mapping[:properties].merge(extra_properties)
 
-        # TODO put mapping
+        @revision_mapping = default_revision_mapping
+        @revision_mapping[:properties] = @revision_mapping[:properties].merge(extra_properties)
       end
 
-      def mapping
-        @mapping || default_mapping
+      def item_mapping
+        @item_mapping || default_item_mapping
+      end
+
+      def revision_mapping
+        @revision_mapping || default_revision_mapping
       end
 
       # Public: The Elasticsearch client
@@ -239,11 +244,24 @@ module GitCma
       def ensure_index!
         unless es_client.indices.exists index: index_name
           body = { mappings: {} }
-          body[:mappings][item_type_name] = ITEM_MAPPING
-          body[:mappings][revision_type_name] = mapping
+          body[:mappings][item_type_name] = item_mapping
+          body[:mappings][revision_type_name] = revision_mapping
 
           es_client.indices.create index: index_name, body: body
         end
+      end
+
+      def put_mapping!
+        item_body = {
+          item_type_name => item_mapping
+        }
+
+        revision_body = {
+          revision_type_name=> revision_mapping
+        }
+
+        es_client.indices.put_mapping index: index_name, type: item_type_name, body: item_body
+        es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
       end
 
       private
@@ -258,7 +276,7 @@ module GitCma
       end
 
       # Revision mapping, used for all other types of search through parent-child relation on the item
-      def default_mapping
+      def default_revision_mapping
         {
           _source: { enabled: false }, # you only get what you store
           _parent: { type: item_type_name },
@@ -285,24 +303,25 @@ module GitCma
           }
         }
       end
-    end
 
-    # Item mapping, used for listing documents
-    ITEM_MAPPING = {
-      properties: {
-        # _id is "{id}-{state}"
-        id: {
-          type: 'string',
-          index: 'not_analyzed'
-        },
-        state: {
-          type: 'string',
-          index: 'not_analyzed'
-        },
-        updated_at: {
-          type: 'date'
+      def default_item_mapping
+        {
+          properties: {
+            # _id is "{id}-{state}"
+            id: {
+              type: 'string',
+              index: 'not_analyzed'
+            },
+            state: {
+              type: 'string',
+              index: 'not_analyzed'
+            },
+            updated_at: {
+              type: 'date'
+            }
+          }
         }
-      }
-    }
+      end
+    end
   end
 end

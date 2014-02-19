@@ -163,8 +163,8 @@ describe ContentItem do
         indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
         indices.should_receive(:create).with(index: 'git-cma-content', body: {
           mappings: {
-            'content_item' => ContentItem::ITEM_MAPPING,
-            'content_item_rev' => ContentItem.send(:default_mapping)
+            'content_item' => ContentItem.item_mapping,
+            'content_item_rev' => ContentItem.send(:default_revision_mapping)
           }
         }).and_return(true)
 
@@ -180,7 +180,7 @@ describe ContentItem do
         ContentItem.send :ensure_index!
       end
 
-      it "should have the right item ITEM_MAPPINGs" do
+      it "should have the right item item_mappings" do
         mappings = {
           properties: {
             id: {
@@ -197,7 +197,7 @@ describe ContentItem do
           }
         }
 
-        expect(ContentItem::ITEM_MAPPING).to eq(mappings)
+        expect(ContentItem.item_mapping).to eq(mappings)
       end
 
       it "should have the right default mappings" do
@@ -226,7 +226,7 @@ describe ContentItem do
           }
         }
 
-        expect(ContentItem.send(:default_mapping)).to eq(mappings)
+        expect(ContentItem.send(:default_revision_mapping)).to eq(mappings)
       end
     end
 
@@ -267,6 +267,18 @@ describe ContentItem do
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
+      end
+
+      it "shoud index the document when rolled back" do
+        pending
+
+        ci = ContentItem.new(body: "foobar")
+        ci.document.should_receive(:rollback!).and_return('xyz1')
+
+        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time, body: "foobar" }
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+
+        # expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
       end
 
       it "should index a complex the document" do
@@ -433,12 +445,86 @@ describe ContentItem do
     end
 
     describe "customized mappings" do
+      let :indices do
+        Object.new
+      end
+
       it "should update mappings on demand" do
-        pending "search"
+        ContentItem.attributes_mapping do
+          {
+            tags: {
+              type: 'string',
+              index: 'not_analyzed'
+            }
+          }
+        end
+
+        expect(ContentItem.item_mapping[:properties]).to have_key(:tags)
+        expect(ContentItem.item_mapping[:properties][:tags]).to eq({type: 'string', index: 'not_analyzed'})
       end
 
       it "should extend mappings with user defined ones" do
-        pending "search"
+        body = {
+          'content_item' => {
+            properties: {
+              # _id is "{id}-{state}"
+              id: {
+                type: 'string',
+                index: 'not_analyzed'
+              },
+              state: {
+                type: 'string',
+                index: 'not_analyzed'
+              },
+              updated_at: {
+                type: 'date'
+              },
+              tags: {
+                type: 'string',
+                index: 'not_analyzed'
+              }
+            }
+          }
+        }
+
+        rev_body = {
+          'content_item_rev' => {
+            _source: { enabled: false }, # you only get what you store
+            _parent: { type: 'content_item' },
+            properties: {
+              # _id is "{id}-{rev}"
+              id: {
+                type: 'string',
+                store: 'yes',
+                index: 'not_analyzed'
+              },
+              revision: {
+                type: 'string',
+                store: 'yes',
+                index: 'not_analyzed'
+              },
+              state: {
+                type: 'string',
+                store: 'yes',
+                index: 'not_analyzed'
+              },
+              updated_at: {
+                type: 'date'
+              },
+              tags: {
+                type: 'string',
+                index: 'not_analyzed'
+              }
+            }
+          }
+        }
+
+        client.stub(:indices).and_return(indices)
+
+        indices.should_receive(:put_mapping).with(index: 'git-cma-content', type: 'content_item', body: body)
+        indices.should_receive(:put_mapping).with(index: 'git-cma-content', type: 'content_item_rev', body: rev_body)
+
+        ContentItem.put_mapping!
       end
     end
   end
