@@ -65,6 +65,14 @@ describe Content do
     end
   end
 
+  describe "delegation" do
+    it "should delegate valid methods to content" do
+      c = Content.new(['foo', 'bar', 'baz'])
+
+      expect(c.join(",")).to eq('foo,bar,baz')
+    end
+  end
+
   describe "serialization" do
     it "should serialize to JSON" do
       c = Content.new([{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}])

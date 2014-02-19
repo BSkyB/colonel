@@ -5,7 +5,6 @@ module GitCma
 
   # Public: Extends OpenStruct to dynamically convert saved hashes to structs and support JSON (de)serialization.
   class Content < OpenStruct
-
     def initialize(opts = {})
       if opts.is_a?(Array)
         @list = opts.map { |v| wrap(v) }
@@ -60,6 +59,20 @@ module GitCma
     def self.from_json(string)
       it = JSON.parse(string)
       new(it)
+    end
+
+    def method_missing(meth, *args, &block)
+      if @list && @list.respond_to?(meth)
+        @list.send(meth, *args, &block)
+      elsif @table && @tbale.respond_to?(meth)
+        @list.send(meth, *args, &block)
+      else
+        super
+      end
+    end
+
+    def inspect
+      "#<#{self.class} #{(@list || @table).inspect}>"
     end
 
     private
