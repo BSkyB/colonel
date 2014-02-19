@@ -131,8 +131,8 @@ module GitCma
     def method_missing(meth, *args)
       if args.length < 1
         @content.send meth
-      elsif args.length == 1
-        @content.send meth.to_s.chomp("="), *args
+      elsif meth.to_s.match(/=$/) && args.length == 1
+        @content.send meth, *args
       else
         super
       end
