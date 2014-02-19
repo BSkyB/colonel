@@ -114,6 +114,8 @@ module GitCma
 
     def rollback!(state)
       document.rollback!(state)
+
+      # FIXME index the document back to the current revision!
     end
 
     # Surfacing content
@@ -176,14 +178,14 @@ module GitCma
       #
       # query - string, or elastic search query DSL. Forwarded to elasticsearch
       # opts  - an options hash
-      #         :revisions - boolean, search across all revisions. Default false.
+      #         :history - boolean, search across all revisions. Default false.
       #         :sort - sort specification
       #         :from - how many results to skip
       #         :size - how many results to show
       # Returns the elasticsearch result set
       def search(query, opts = {})
         query = { query_string: { query: query }} if query.is_a?(String)
-        query = { has_child: { type: revision_type_name.to_s, query: query }} if opts[:revisions]
+        query = { has_child: { type: revision_type_name.to_s, query: query }} if opts[:history]
 
         body = { query: query }
 

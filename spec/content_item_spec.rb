@@ -428,7 +428,7 @@ describe ContentItem do
         }
 
         client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
-        ContentItem.search("query", revisions: true)
+        ContentItem.search("query", history: true)
       end
     end
 
