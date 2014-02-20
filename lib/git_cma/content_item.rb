@@ -113,9 +113,42 @@ module GitCma
     end
 
     def rollback!(state)
+      rollback_index!(state)
       document.rollback!(state)
+    end
 
-      # FIXME index the document back to the current revision!
+    def rollback_index!(state)
+      ci = self.clone
+
+      history = ci.history(state)
+      commit = history[0]
+      parent = history[1]
+
+      from_sha = commit[:rev]
+      to_sha = parent[:rev]
+      updated_at = parent[:time]
+
+      ci.load!(to_sha)
+
+      body = {
+        id: ci.id,
+        revision: to_sha,
+        state: state,
+        updated_at: updated_at
+      }
+
+      item_id = "#{ci.id}-#{state}"
+      rev_id = "#{ci.id}-#{from_sha}"
+
+      body = body.merge(Content.from_json(ci.document.content).plain)
+
+      # reindex the document
+      self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
+
+      # delete the old revision
+      self.class.es_client.delete(index: self.class.index_name, type: self.class.revision_type_name.to_s, id: rev_id)
+
+      to_sha
     end
 
     # Surfacing content

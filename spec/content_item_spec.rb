@@ -105,6 +105,7 @@ describe ContentItem do
   describe "document API" do
     before do
       ContentItem.any_instance.stub(:index!)
+      ContentItem.any_instance.stub(:rollback_index!)
     end
 
     it "should delegate revision" do
@@ -270,15 +271,11 @@ describe ContentItem do
       end
 
       it "shoud index the document when rolled back" do
-        pending
-
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:rollback!).and_return('xyz1')
+        ci.document.should_receive(:rollback!).and_return('rev1')
+        ci.should_receive(:rollback_index!).with('preview').and_return('rev1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time, body: "foobar" }
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
-
-        # expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
+        expect(ci.rollback!('preview')).to eq('rev1')
       end
 
       it "should index a complex the document" do
@@ -293,6 +290,24 @@ describe ContentItem do
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
+      end
+
+      it "should rollback an indexed document" do
+        ci = ContentItem.new(body: 'foobar')
+
+        ci.should_receive(:clone).and_return(ci)
+
+        ci.should_receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
+
+        ci.should_receive(:load!).with('rev1')
+        ci.document.should_receive(:content).and_return({body: 'old content'}.to_json)
+
+        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time, body: "old content" }
+
+        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        client.should_receive(:delete).with(index: 'git-cma-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
+
+        ci.rollback_index!('preview')
       end
     end
 
