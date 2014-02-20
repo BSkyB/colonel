@@ -145,7 +145,8 @@ module GitCma
     end
 
     # Public: Roll back the current revision in a given state to the previous one in that state.
-    # If there is no previous revision in the given state, remove the state branch.
+    # If there is no previous revision in the given state, remove the state branch. Doesn't load
+    # the revision rolled back to by default, you have to do it manually if required.
     #
     # state - the state to roll back (e.g. 'published')
     #
