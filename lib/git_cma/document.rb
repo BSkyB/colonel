@@ -183,7 +183,12 @@ module GitCma
       #
       # Returns a Document instance
       def open(name, rev = nil)
-        repo = Rugged::Repository.new("storage/#{name}")
+        begin
+          repo = Rugged::Repository.new("storage/#{name}")
+        rescue Rugged::OSError
+          return nil
+        end
+
         doc = Document.new(name, repo: repo)
         doc.load!(rev)
 

@@ -223,6 +223,8 @@ module GitCma
       # Public: Open a content item by it's id and optionally revision. Delegates to the document.
       def open(id, rev = nil)
         doc = Document.open(id, rev)
+        return nil unless doc
+
         new(nil, document: doc)
       end
 
