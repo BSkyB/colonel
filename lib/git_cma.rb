@@ -7,7 +7,7 @@ require "git_cma/content"
 require "git_cma/content_item"
 
 module GitCma
-  def config
+  def self.config
     @config ||= Struct.new(:storage_path).new('storage')
   end
 end
