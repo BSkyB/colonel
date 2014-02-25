@@ -170,7 +170,7 @@ module GitCma
 
     # Internal: The Rugged repository object for the given document
     def repository
-      @repo ||= Rugged::Repository.init_at("storage/#{name}", :bare)
+      @repo ||= Rugged::Repository.init_at(File.join(GitCma.config.storage_path, @name), :bare)
     end
 
     # Class methods
@@ -184,7 +184,7 @@ module GitCma
       # Returns a Document instance
       def open(name, rev = nil)
         begin
-          repo = Rugged::Repository.new("storage/#{name}")
+          repo = Rugged::Repository.new(File.join(GitCma.config.storage_path, name))
         rescue Rugged::OSError
           return nil
         end
