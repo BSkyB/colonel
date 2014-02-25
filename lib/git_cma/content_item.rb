@@ -333,7 +333,7 @@ module GitCma
 
       # Public: The Elasticsearch client
       def es_client
-        @es_client ||= ::Elasticsearch::Client.new log: false
+        @es_client ||= ::Elasticsearch::Client.new(host: GitCma.config.elasticsearch_host, log: false)
       end
 
       # Internal: Revision type name for elastic search.
