@@ -5,13 +5,14 @@ describe ContentItem do
     ContentItem.stub(:setup_search!)
   end
 
-  describe "creating" do
-
-    it "can create an elasticsearch client" do
+  describe "config" do
+    it "should create an elasticsearch client" do
       ::Elasticsearch::Client.should_receive(:new).with(host: 'localhost:9200', log: false)
       ContentItem.es_client
     end
+  end
 
+  describe "creating" do
     it "should create item with content from hash" do
       c = ContentItem.new(foo: 'foo', bar: 'bar')
 
