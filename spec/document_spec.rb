@@ -28,7 +28,7 @@ describe Document do
 
   describe "git storage" do
     it "should create a repository with the document's name when asked for repo" do
-      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare)
+      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare, backend: {type: :redis, host: 'localhost', port: 6379})
 
       Document.new('test').repository
     end
@@ -132,7 +132,7 @@ describe Document do
     end
 
     it "should open the repository and get HEAD" do
-      Rugged::Repository.should_receive(:new).with("storage/test").and_return(repo)
+      Rugged::Repository.should_receive(:bare).with("storage/test", backend: {type: :redis, host: 'localhost', port: 6379}).and_return(repo)
       repo.should_receive(:head).and_return Struct.new(:target).new('abcdef')
       repo.should_receive(:lookup).with('abcdef').and_return(commit)
       commit.should_receive(:tree).and_return(tree)
