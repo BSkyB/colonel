@@ -371,7 +371,7 @@ module GitCma
       # Internal: Walk through elasticsearch hits and turn them into ContentItem instances
       def hydrate_hits(hits)
         hits["hits"] = hits["hits"].map do |hit|
-          open(hit["_source"]["id"])
+          open(hit["_source"]["id"], hit["_source"]["revision"])
         end
 
         # FIXME this should probably be a result set class with Enumerable mixin

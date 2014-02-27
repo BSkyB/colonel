@@ -457,6 +457,34 @@ describe ContentItem do
         client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", history: true)
       end
+
+      it "should load the right id and revision" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          }
+        }
+
+        results = {
+          "hits" => {
+            "hits" => [
+              {
+                "_source" => {
+                  "id" => "abc",
+                  "revision" => "def"
+                }
+              }
+            ]
+          }
+        }
+
+        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        ContentItem.should_receive(:open).with("abc", "def")
+
+        ContentItem.search("query")
+      end
     end
 
     describe "customized mappings" do
