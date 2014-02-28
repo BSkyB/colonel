@@ -69,9 +69,9 @@ describe Document do
 
       options = {
         tree: 'foo',
-        author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-        committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-        message: 'save from git CMA',
+        author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        message: 'save from the colonel',
         parents: [],
         update_ref: 'refs/heads/master'
       }
@@ -93,9 +93,9 @@ describe Document do
 
       options = {
         tree: 'foo',
-        author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-        committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-        message: 'save from git CMA',
+        author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        message: 'save from the colonel',
         parents: ['head'],
         update_ref: 'refs/heads/master'
       }
@@ -261,16 +261,16 @@ describe Document do
 
         options = {
           tree: 'foo',
-          author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          message: 'preview from git CMA',
+          author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          message: 'preview from the colonel',
           parents: ['xyz2', 'xyz1'],
           update_ref: 'refs/heads/preview'
         }
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.promote!('master', 'preview', 'preview from git CMA', time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', 'preview from the colonel', time)).to eq 'foo'
       end
 
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
@@ -286,16 +286,16 @@ describe Document do
 
         options = {
           tree: 'foo',
-          author: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          committer: {email: 'git-cma@example.com', name: 'Git CMA', time: time},
-          message: 'preview from git CMA',
+          author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          message: 'preview from the colonel',
           parents: ['xyz1'],
           update_ref: 'refs/heads/preview'
         }
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.promote!('master', 'preview', 'preview from git CMA', time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', 'preview from the colonel', time)).to eq 'foo'
       end
     end
 

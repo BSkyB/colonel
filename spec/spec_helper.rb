@@ -13,8 +13,8 @@ else
   SimpleCov.start
 end
 
-require 'git_cma'
-include GitCma
+require 'colonel'
+include Colonel
 
 RSpec.configure do |config|
   config.mock_with :rspec
