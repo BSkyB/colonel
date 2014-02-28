@@ -8,13 +8,11 @@ The Colonel is essentially a NoSQL database which supports versioned structured 
 
 Add this line to your application's Gemfile:
 
-    gem 'git_cma', git: 'git@github.com:bskyb-commerce/git-cma.git'
+    gem 'colonel', git: 'git://github.com/bskyb-commerce/colonel.git
 
 And then execute:
 
     $ bundle
-
-the code still refers to the previous name Git CMA, this will change in the future.
 
 ### Dependencies
 
@@ -22,16 +20,16 @@ The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 
 
 ## Usage
 
-Require `git_cma` where you need to use it
+Require `colonel` where you need to use it
 
 ```ruby
-require 'git_cma'
+require 'colonel'
 ```
 
 and optionally
 
 ```
-include GitCma
+include Colonel
 ```
 
 ### Create or open a ContenItem
@@ -143,7 +141,7 @@ If you need more than that, you can search all the content. You need to provide 
 and can add the same options the list method has.
 
 ```ruby
-ContentItem.search('published', 'How to use GitCma?', size: 10, from: 20)
+ContentItem.search('published', 'How to use the Colonel?', size: 10, from: 20)
 # => { total: 12, hits: [ ... ContentItem instances ... ] }
 ```
 
@@ -156,8 +154,8 @@ In most cases you'd want to derive from the content item and create your own con
 That allows you to customize the Elasticsearch indexing options
 
 ```ruby
-class DocumentItem < GitCma::ContentItem
-  index_name 'git-cma-app'
+class DocumentItem < Colonel::ContentItem
+  index_name 'colonel-app'
   item_type_name 'document'
 
   attributes_mapping do
@@ -266,7 +264,7 @@ class Document
   # States
 
   def publish!
-    @document.promote!('master', 'published', 'publish from git CMA', Time.now)
+    @document.promote!('master', 'published', 'publish from the colonel', Time.now)
   end
 
   def draft_rev
@@ -413,7 +411,7 @@ Item
 
 ## Contributing
 
-1. Fork it ( http://github.com/[my-github-username]/git-cma/fork )
+1. Fork it ( http://github.com/[my-github-username]/colonel/fork )
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
