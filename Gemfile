@@ -4,4 +4,4 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'simplecov', :require => false, :group => :test
-gem 'rugged', path: '../libgit/rugged'
+gem 'rugged', '0.19.0', :git => 'git://github.com/redbadger/rugged.git', :branch => 'redis-simple'
