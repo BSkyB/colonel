@@ -333,7 +333,7 @@ module Colonel
 
       # Public: The Elasticsearch client
       def es_client
-        @es_client ||= ::Elasticsearch::Client.new(host: Colonel.config.elasticsearch_host, log: false)
+        @es_client ||= ::Elasticsearch::Client.new(host: Colonel.config.elasticsearch_uri, log: false)
       end
 
       # Internal: Revision type name for elastic search.
