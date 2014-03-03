@@ -7,8 +7,11 @@ describe Document do
       config = Object.new
       GitCma.stub(:config).and_return(config)
       config.stub(:storage_path).and_return('foo')
-      config.stub(:redis_host).and_return('example.com:1111')
-      Rugged::Repository.should_receive(:init_at).with('foo/x', :bare, backend: {type: :redis, host: 'example.com', port: 1111}).and_return :foo
+      config.stub(:redis_host).and_return('example.com')
+      config.stub(:redis_port).and_return(1111)
+      config.stub(:redis_password).and_return('password')
+      Rugged::Repository.should_receive(:init_at).with('foo/x', :bare, backend: {type: :redis, host: 'example.com', port: 1111, password: 'password'}).and_return :foo
+
 
       expect(Document.new('x').repository).not_to be_nil
     end
@@ -17,8 +20,10 @@ describe Document do
       config = Object.new
       GitCma.stub(:config).and_return(config)
       config.stub(:storage_path).and_return('foo')
-      config.stub(:redis_host).and_return('example.com:1111')
-      Rugged::Repository.should_receive(:bare).with('foo/x', backend: {type: :redis, host: 'example.com', port: 1111}).and_return :foo
+      config.stub(:redis_host).and_return('example.com')
+      config.stub(:redis_port).and_return(1111)
+      config.stub(:redis_password).and_return('password')
+      Rugged::Repository.should_receive(:bare).with('foo/x', backend: {type: :redis, host: 'example.com', port: 1111, password: 'password'}).and_return :foo
       doc = Object.new
       Document.should_receive(:new).with('x', repo: :foo).and_return(doc)
       doc.stub(:load!)
@@ -54,7 +59,7 @@ describe Document do
 
   describe "git storage" do
     it "should create a repository with the document's name when asked for repo" do
-      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare, backend: {type: :redis, host: 'localhost', port: 6379})
+      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare, backend: {type: :redis, host: 'localhost', port: 6379, password: ''})
 
       Document.new('test').repository
     end
@@ -181,7 +186,7 @@ describe Document do
     end
 
     it "should open the repository and get HEAD" do
-      Rugged::Repository.should_receive(:bare).with("storage/test", backend: {type: :redis, host: 'localhost', port: 6379}).and_return(repo)
+      Rugged::Repository.should_receive(:bare).with("storage/test", backend: {type: :redis, host: 'localhost', port: 6379, password: ''}).and_return(repo)
       repo.should_receive(:head).and_return Struct.new(:target).new('abcdef')
       repo.should_receive(:lookup).with('abcdef').and_return(commit)
       commit.should_receive(:tree).and_return(tree)
