@@ -1,6 +1,32 @@
 require 'spec_helper'
 
 describe Document do
+
+  describe "config" do
+    it "should create a repository using config" do
+      config = Object.new
+      GitCma.stub(:config).and_return(config)
+      config.stub(:storage_path).and_return('foo')
+      config.stub(:redis_host).and_return('example.com:1111')
+      Rugged::Repository.should_receive(:init_at).with('foo/x', :bare, backend: {type: :redis, host: 'example.com', port: 1111}).and_return :foo
+
+      expect(Document.new('x').repository).not_to be_nil
+    end
+
+    it "should open a repository using config" do
+      config = Object.new
+      GitCma.stub(:config).and_return(config)
+      config.stub(:storage_path).and_return('foo')
+      config.stub(:redis_host).and_return('example.com:1111')
+      Rugged::Repository.should_receive(:bare).with('foo/x', backend: {type: :redis, host: 'example.com', port: 1111}).and_return :foo
+      doc = Object.new
+      Document.should_receive(:new).with('x', repo: :foo).and_return(doc)
+      doc.stub(:load!)
+
+      expect(Document.open('x')).not_to be_nil
+    end
+  end
+
   describe "creation" do
     before do
       Rugged::Repository.stub(:new).and_return nil
