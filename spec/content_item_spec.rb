@@ -245,7 +245,7 @@ describe ContentItem do
       it "should index the document" do
         ci = ContentItem.new(body: "foobar")
 
-        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
@@ -257,7 +257,7 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:save!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
@@ -269,7 +269,7 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:promote!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
@@ -288,7 +288,7 @@ describe ContentItem do
         ci = ContentItem.new(title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"})
 
         body = {
-          id: ci.id, revision: 'yzw', state: 'master', updated_at: time,
+          id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601,
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
