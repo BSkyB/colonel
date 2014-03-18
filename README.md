@@ -16,6 +16,10 @@ And then execute:
 
 the code still refers to the previous name Git CMA, this will change in the future.
 
+### Dependencies
+
+The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 to work.  
+
 ## Usage
 
 Require `git_cma` where you need to use it
