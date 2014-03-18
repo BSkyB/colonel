@@ -100,7 +100,7 @@ module Colonel
         id: id,
         revision: sha,
         state: state,
-        updated_at: updated_at
+        updated_at: updated_at.iso8601
       }
 
       body = body.merge(@content.plain)
@@ -179,7 +179,7 @@ module Colonel
         id: ci.id,
         revision: to_sha,
         state: state,
-        updated_at: updated_at
+        updated_at: updated_at.iso8601
       }
 
       item_id = "#{ci.id}-#{state}"

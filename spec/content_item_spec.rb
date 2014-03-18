@@ -68,7 +68,7 @@ describe ContentItem do
 
   describe "persisting" do
     let :time do
-      Time.now.iso8601
+      Time.now
     end
 
     let :document do
@@ -239,13 +239,13 @@ describe ContentItem do
 
     describe "indexing" do
       let :time do
-        Time.now.iso8601
+        Time.now
       end
 
       it "should index the document" do
         ci = ContentItem.new(body: "foobar")
 
-        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
@@ -257,7 +257,7 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:save!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
@@ -268,7 +268,7 @@ describe ContentItem do
         ci = ContentItem.new(body: "foobar")
         ci.document.should_receive(:promote!).and_return('xyz1')
 
-        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time, body: "foobar" }
+        body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
@@ -287,7 +287,7 @@ describe ContentItem do
         ci = ContentItem.new(title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"})
 
         body = {
-          id: ci.id, revision: 'yzw', state: 'master', updated_at: time,
+          id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601,
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
@@ -302,12 +302,12 @@ describe ContentItem do
 
         ci.should_receive(:clone).and_return(ci)
 
-        ci.should_receive(:history).with('preview').and_return([{time: (Time.now + 100).iso8601, rev: 'rev2'}, {time: time, rev: 'rev1'}])
+        ci.should_receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
 
         ci.should_receive(:load!).with('rev1')
         ci.document.should_receive(:content).and_return({body: 'old content'}.to_json)
 
-        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time, body: "old content" }
+        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
