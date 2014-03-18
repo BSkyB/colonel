@@ -308,7 +308,7 @@ describe ContentItem do
         ci.should_receive(:load!).with('rev1')
         ci.document.should_receive(:content).and_return({body: 'old content'}.to_json)
 
-        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time, body: "old content" }
+        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
         client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:delete).with(index: 'git-cma-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
