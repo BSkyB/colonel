@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+
+gem 'sinatra'
+gem 'sinatra-contrib'
+gem 'colonel', git: 'https://433d099954872a1e7817dc3978383699fabcc386:x-oauth-basic@github.com/bskyb-commerce/git-cma.git', branch: 'rename'
+
