@@ -8,7 +8,7 @@ The Colonel is essentially a NoSQL database which supports versioned structured 
 
 Add this line to your application's Gemfile:
 
-    gem 'git_cma', git: 'git://github.com/bskyb-commerce/git-cma.git
+    gem 'git_cma', git: 'git@github.com:bskyb-commerce/git-cma.git'
 
 And then execute:
 
