@@ -177,7 +177,7 @@ module Colonel
 
     # Internal: The Rugged repository object for the given document
     def repository
-      @repo ||= Rugged::Repository.init_at(File.join(GitCma.config.storage_path, @name), :bare, backend: { type: :redis, host: GitCma.config.redis_host, port: GitCma.config.redis_port, password: GitCma.config.redis_password })
+      @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare, backend: { type: :redis, host: Colonel.config.redis_host, port: Colonel.config.redis_port, password: Colonel.config.redis_password })
     end
 
     # Class methods
@@ -191,7 +191,7 @@ module Colonel
       # Returns a Document instance
       def open(name, rev = nil)
         begin
-          repo = Rugged::Repository.bare(File.join(GitCma.config.storage_path, name), backend: { type: :redis, host: GitCma.config.redis_host, port: GitCma.config.redis_port, password: GitCma.config.redis_password })
+          repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, name), backend: { type: :redis, host: Colonel.config.redis_host, port: Colonel.config.redis_port, password: Colonel.config.redis_password })
         rescue Rugged::OSError
           return nil
         end

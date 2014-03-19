@@ -5,7 +5,7 @@ describe Document do
   describe "config" do
     it "should create a repository using config" do
       config = Object.new
-      GitCma.stub(:config).and_return(config)
+      Colonel.stub(:config).and_return(config)
       config.stub(:storage_path).and_return('foo')
       config.stub(:redis_host).and_return('example.com')
       config.stub(:redis_port).and_return(1111)
@@ -18,7 +18,7 @@ describe Document do
 
     it "should open a repository using config" do
       config = Object.new
-      GitCma.stub(:config).and_return(config)
+      Colonel.stub(:config).and_return(config)
       config.stub(:storage_path).and_return('foo')
       config.stub(:redis_host).and_return('example.com')
       config.stub(:redis_port).and_return(1111)

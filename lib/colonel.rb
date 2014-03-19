@@ -9,11 +9,11 @@ require "colonel/content_item"
 module Colonel
   # Public: Sets configuration options.
   #
-  # GitCma.config.storage_path - location to store git repo on disk
-  # GitCma.config.elasticsearch_uri - uri for elasticsearch
-  # GitCma.config.redis_host - redis host
-  # GitCma.config.redis_port - redis port
-  # GitCma.config.redis_password - redis password if required
+  # Colonel.config.storage_path - location to store git repo on disk
+  # Colonel.config.elasticsearch_uri - uri for elasticsearch
+  # Colonel.config.redis_host - redis host
+  # Colonel.config.redis_port - redis port
+  # Colonel.config.redis_password - redis password if required
   #
   # Returns a config struct
   def self.config
