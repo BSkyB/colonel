@@ -1,6 +1,6 @@
 require 'ostruct'
 
-module GitCma
+module Colonel
   # Public: Structured content storage. Backed by `Document` for versioning and publishing states support.
   # Content can be any data structure composed of hashes and arrays. It is then accessible through method
   # calls (similar to OpenStruct which it is based on). When saved, content item serializes the content
@@ -294,7 +294,7 @@ module GitCma
       # Public: Set or retrieve the index name in elasticsearch
       def index_name(val = nil)
         @index_name = val if val
-        @index_name || 'git-cma-content'
+        @index_name || 'colonel-content'
       end
 
       # Public: Set custom mapping for your content structure. Yields to a block that
@@ -333,7 +333,7 @@ module GitCma
 
       # Public: The Elasticsearch client
       def es_client
-        @es_client ||= ::Elasticsearch::Client.new(host: GitCma.config.elasticsearch_host, log: false)
+        @es_client ||= ::Elasticsearch::Client.new(host: Colonel.config.elasticsearch_host, log: false)
       end
 
       # Internal: Revision type name for elastic search.

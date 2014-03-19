@@ -167,8 +167,8 @@ describe ContentItem do
       it "should create index if it doesn't exist" do
         client.stub(:indices).and_return(indices)
 
-        indices.should_receive(:exists).with(index: 'git-cma-content').and_return(false)
-        indices.should_receive(:create).with(index: 'git-cma-content', body: {
+        indices.should_receive(:exists).with(index: 'colonel-content').and_return(false)
+        indices.should_receive(:create).with(index: 'colonel-content', body: {
           mappings: {
             'content_item' => ContentItem.item_mapping,
             'content_item_rev' => ContentItem.send(:default_revision_mapping)
@@ -181,7 +181,7 @@ describe ContentItem do
       it "should not create index if it exists" do
         client.stub(:indices).and_return(indices)
 
-        indices.should_receive(:exists).with(index: 'git-cma-content').and_return(true)
+        indices.should_receive(:exists).with(index: 'colonel-content').and_return(true)
         indices.should_not_receive(:create)
 
         ContentItem.send :ensure_index!
@@ -247,8 +247,8 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -258,9 +258,8 @@ describe ContentItem do
         ci.document.should_receive(:save!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
-
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.save!(time)).to eq('xyz1')
       end
@@ -270,8 +269,8 @@ describe ContentItem do
         ci.document.should_receive(:promote!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
       end
@@ -292,8 +291,8 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -310,8 +309,8 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
-        client.should_receive(:index).with(index: 'git-cma-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        client.should_receive(:delete).with(index: 'git-cma-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        client.should_receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
 
         ci.rollback_index!('preview')
       end
@@ -333,7 +332,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list
       end
@@ -349,7 +348,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(state: 'preview')
       end
@@ -368,7 +367,7 @@ describe ContentItem do
           ]
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(sort: {updated_at: 'desc'})
       end
@@ -385,7 +384,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: query).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(from: 40, size: 20)
       end
@@ -399,7 +398,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query")
       end
 
@@ -412,7 +411,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search(match: {id: 'abcdef'})
       end
 
@@ -428,7 +427,7 @@ describe ContentItem do
           ]
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", sort: {updated_at: :desc})
       end
 
@@ -442,7 +441,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", from: 40, size: 20)
       end
 
@@ -460,7 +459,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", history: true)
       end
 
@@ -486,7 +485,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'git-cma-content', type: 'content_item', body: body).and_return(results)
+        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.should_receive(:open).with("abc", "def")
 
         ContentItem.search("query")
@@ -570,8 +569,8 @@ describe ContentItem do
 
         client.stub(:indices).and_return(indices)
 
-        indices.should_receive(:put_mapping).with(index: 'git-cma-content', type: 'content_item', body: body)
-        indices.should_receive(:put_mapping).with(index: 'git-cma-content', type: 'content_item_rev', body: rev_body)
+        indices.should_receive(:put_mapping).with(index: 'colonel-content', type: 'content_item', body: body)
+        indices.should_receive(:put_mapping).with(index: 'colonel-content', type: 'content_item_rev', body: rev_body)
 
         ContentItem.put_mapping!
       end

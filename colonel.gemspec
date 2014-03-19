@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'git_cma/version'
+require 'colonel/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "git_cma"
-  spec.version       = GitCma::VERSION
+  spec.name          = "colonel"
+  spec.version       = Colonel::VERSION
   spec.authors       = ["Viktor Charypar"]
   spec.email         = ["viktor.charypar@red-badger.com"]
   spec.summary       = %q{Git-backed document storage with versioning}

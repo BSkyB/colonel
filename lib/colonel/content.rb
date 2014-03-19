@@ -1,7 +1,7 @@
 require 'ostruct'
 require 'json'
 
-module GitCma
+module Colonel
 
   # Public: Extends OpenStruct to dynamically convert saved hashes to structs and support JSON (de)serialization.
   class Content < OpenStruct

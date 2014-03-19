@@ -1,5 +1,5 @@
 
-module GitCma
+module Colonel
   # Public: A versioned document storage with publishing pipeline support. Documents are internally
   # stored as a single file in a separate git repository for each document. Each state in the publishing
   # process is a separate branch.
@@ -38,7 +38,7 @@ module GitCma
     # Returns the sha of the created revision
     def save!(timestamp)
       parents = (repository.empty? ? [] : [repository.head.target].compact)
-      @revision = commit!(@content, parents, 'refs/heads/master', 'save from git CMA', timestamp)
+      @revision = commit!(@content, parents, 'refs/heads/master', 'save from the colonel', timestamp)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -170,7 +170,7 @@ module GitCma
 
     # Internal: The Rugged repository object for the given document
     def repository
-      @repo ||= Rugged::Repository.init_at(File.join(GitCma.config.storage_path, @name), :bare)
+      @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare)
     end
 
     # Class methods
@@ -184,7 +184,7 @@ module GitCma
       # Returns a Document instance
       def open(name, rev = nil)
         begin
-          repo = Rugged::Repository.new(File.join(GitCma.config.storage_path, name))
+          repo = Rugged::Repository.new(File.join(Colonel.config.storage_path, name))
         rescue Rugged::OSError
           return nil
         end
@@ -231,7 +231,7 @@ module GitCma
       index.add(path: 'content', oid: oid, mode: 0100644)
       tree = index.write_tree(repository)
 
-      author = {email: 'git-cma@example.com', name: 'Git CMA', time: timestamp}
+      author = {email: 'colonel@example.com', name: 'The Colonel', time: timestamp}
       options = {
         tree: tree,
         author: author,
