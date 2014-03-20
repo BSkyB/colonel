@@ -59,7 +59,7 @@ describe Document do
       document.stub(:repository).and_return(repo)
     end
 
-    it "should create a commit on first save" do
+    it "should create a commit on first save without a commit message" do
       repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
 
       Rugged::Index.should_receive(:new).and_return index
@@ -69,8 +69,31 @@ describe Document do
 
       options = {
         tree: 'foo',
-        author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
-        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time },
+        message: '',
+        parents: [],
+        update_ref: 'refs/heads/master'
+      }
+
+      Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+
+      expect(document.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq 'foo'
+      expect(document.revision).to eq 'foo'
+    end
+
+    it "should create a commit on first save with a commit message" do
+      repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+
+      Rugged::Index.should_receive(:new).and_return index
+      index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+      index.should_receive(:write_tree).with(repo).and_return 'foo'
+      repo.should_receive(:empty?).and_return(true)
+
+      options = {
+        tree: 'foo',
+        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+        committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         message: 'save from the colonel',
         parents: [],
         update_ref: 'refs/heads/master'
@@ -78,7 +101,7 @@ describe Document do
 
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.save!(time)).to eq 'foo'
+      expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' }, 'save from the colonel', time)).to eq 'foo'
       expect(document.revision).to eq 'foo'
     end
 
@@ -93,8 +116,8 @@ describe Document do
 
       options = {
         tree: 'foo',
-        author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
-        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+        committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         message: 'save from the colonel',
         parents: ['head'],
         update_ref: 'refs/heads/master'
@@ -102,7 +125,7 @@ describe Document do
 
       Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.save!(time)).to eq 'foo'
+      expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' },'save from the colonel', time)).to eq 'foo'
     end
   end
 
@@ -261,8 +284,8 @@ describe Document do
 
         options = {
           tree: 'foo',
-          author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
-          committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+          committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
           message: 'preview from the colonel',
           parents: ['xyz2', 'xyz1'],
           update_ref: 'refs/heads/preview'
@@ -270,7 +293,7 @@ describe Document do
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.promote!('master', 'preview', 'preview from the colonel', time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
       end
 
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
@@ -286,8 +309,8 @@ describe Document do
 
         options = {
           tree: 'foo',
-          author: {email: 'colonel@example.com', name: 'The Colonel', time: time},
-          committer: {email: 'colonel@example.com', name: 'The Colonel', time: time},
+          author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+          committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
           message: 'preview from the colonel',
           parents: ['xyz1'],
           update_ref: 'refs/heads/preview'
@@ -295,7 +318,7 @@ describe Document do
 
         Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
 
-        expect(document.promote!('master', 'preview', 'preview from the colonel', time)).to eq 'foo'
+        expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
       end
     end
 

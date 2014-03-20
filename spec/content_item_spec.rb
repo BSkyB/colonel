@@ -71,6 +71,10 @@ describe ContentItem do
       Time.now
     end
 
+    let :author do
+      { name: 'The Colonel', email: 'colonel@example.com' }
+    end
+
     let :document do
       Struct.new(:name, :content).new('axbcd', '{"foo":"bar"}')
     end
@@ -79,13 +83,22 @@ describe ContentItem do
       ContentItem.any_instance.stub(:index!)
     end
 
-    it "should serialize and save content" do
+    it "should serialize and save content without message" do
       con = ContentItem.new(key: 'value', another: ['array'])
 
       con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
-      con.document.should_receive(:save!).with(time).and_return('abcdef')
+      con.document.should_receive(:save!).with(author, '', time).and_return('abcdef')
 
-      expect(con.save!(time)).to eq('abcdef')
+      expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq('abcdef')
+    end
+
+    it "should serialize and save content with message" do
+      con = ContentItem.new(key: 'value', another: ['array'])
+
+      con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
+      con.document.should_receive(:save!).with(author, 'save from the colonel', time).and_return('abcdef')
+
+      expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'save from the colonel', time)).to eq('abcdef')
     end
 
     it "should load and deserialize content" do
@@ -130,9 +143,9 @@ describe ContentItem do
 
     it "should delegate promote!" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:promote!).with('x', 'y', 'z', 't').and_return('foo')
+      con.document.should_receive(:promote!).with('x', 'y', {}, 'z', 't').and_return('foo')
 
-      expect(con.promote!('x', 'y', 'z', 't')).to eq('foo')
+      expect(con.promote!('x', 'y', {}, 'z', 't')).to eq('foo')
     end
 
     it "should delegate has_been_promoted?" do
@@ -242,6 +255,10 @@ describe ContentItem do
         Time.now
       end
 
+      let :author do
+        { name: 'The Colonel', email: 'colonel@example.com' }
+      end
+
       it "should index the document" do
         ci = ContentItem.new(body: "foobar")
 
@@ -261,18 +278,18 @@ describe ContentItem do
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
-        expect(ci.save!(time)).to eq('xyz1')
+        expect(ci.save!({ name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
       end
 
       it "should index the document when promoted" do
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:promote!).and_return('xyz1')
+        ci.document.should_receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
-        expect(ci.promote!('master', 'preview', 'foo', time)).to eq('xyz1')
+        expect(ci.promote!('master', 'preview', { email: 'colonel@example.com', name: 'The Colonel' }, 'foo', time)).to eq('xyz1')
       end
 
       it "shoud index the document when rolled back" do
