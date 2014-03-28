@@ -32,6 +32,15 @@ and optionally
 include Colonel
 ```
 
+### Configuration
+
+The `Colonel` module exposes a `config` struct for configuration options
+
+```ruby
+Colonel.config.storage_path = 'tmp/colonel_storage/'
+Colonel.config.elasticsearch_host = 'elasticsearch.myapp.com:9200'
+```
+
 ### Create or open a ContenItem
 
 You can start using The Colonel without deriving your own content type. It can handle any kind
