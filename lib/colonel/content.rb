@@ -61,6 +61,12 @@ module Colonel
       new(it)
     end
 
+    def respond_to?(what)
+      return true if @list && @list.respond_to?(what) || @table && @table.respond_to?(what)
+
+      super
+    end
+
     def method_missing(meth, *args, &block)
       if @list && @list.respond_to?(meth)
         @list.send(meth, *args, &block)
