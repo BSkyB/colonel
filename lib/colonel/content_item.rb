@@ -69,12 +69,16 @@ module Colonel
 
     # Public: Save the content item and update the search index
     #
-    # timestamp - the time of the save
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message of the save (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
     #
     # Returns the sha of the newly created revision
-    def save!(timestamp)
+    def save!(author, message = '', timestamp = Time.now)
       document.content = @content.to_json
-      sha = document.save!(timestamp)
+      sha = document.save!(author, message, timestamp)
 
       index!(state: 'master', updated_at: timestamp, revision: sha)
 
@@ -139,8 +143,8 @@ module Colonel
 
     # Public: Promote the document to a new state and index the change. Other than indexing, works the same way
     # as in the Document class.
-    def promote!(from, to, message, timestamp)
-      sha = document.promote!(from, to, message, timestamp)
+    def promote!(from, to, author, message = '', timestamp = Time.now)
+      sha = document.promote!(from, to, author, message, timestamp)
 
       index!(state: to, revision: sha, updated_at: timestamp)
 

@@ -33,12 +33,16 @@ module Colonel
     # Public: save the document as a new revision. Commits the content to the top of `master`, updates `master`
     # and updates the Document's revision to the newly created commit.
     #
-    # timestamp - the time of the save
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message for the commit (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
     #
     # Returns the sha of the created revision
-    def save!(timestamp)
+    def save!(author, message = '', timestamp = Time.now)
       parents = (repository.empty? ? [] : [repository.head.target].compact)
-      @revision = commit!(@content, parents, 'refs/heads/master', 'save from the colonel', timestamp)
+      @revision = commit!(@content, parents, 'refs/heads/master', author, message, timestamp)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -103,18 +107,21 @@ module Colonel
     #
     # from      - initial state, the latest revision of which will be promoted
     # to        - final state, a new revision will be created in it
-    # message   - the commit message
-    # timestamp - time of the promotion
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message for the commit (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
     #
     # Returns the sha of the created revision.
-    def promote!(from, to, message, timestamp)
+    def promote!(from, to, author, message = '', timestamp = Time.now)
       from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
       to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
 
       from_sha = from_ref.target
       to_sha = to_ref.target if to_ref
 
-      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", message, timestamp)
+      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", author, message, timestamp)
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable
@@ -220,18 +227,21 @@ module Colonel
     #
     # content   - the document content, commited as a file named 'content' in the root of the repository
     # parents   - array of parent commit shas
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
     # message   - the commit message to store
     # timestamp - time of the commit
     #
     # Returns the sha of the new commit
-    def commit!(content, parents, ref, message, timestamp)
+    def commit!(content, parents, ref, author, message = '', timestamp = Time.Now)
       oid = repository.write(@content, :blob)
 
       index = Rugged::Index.new
       index.add(path: 'content', oid: oid, mode: 0100644)
       tree = index.write_tree(repository)
+      author.merge! time: timestamp
 
-      author = {email: 'colonel@example.com', name: 'The Colonel', time: timestamp}
       options = {
         tree: tree,
         author: author,

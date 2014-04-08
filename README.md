@@ -60,18 +60,33 @@ doc.id
 # => 'b1ff909250a5fda83042abc86f7033f9' # randomly generated
 ```
 
-And you can also save the item
+And you can also save the item, you are required to supply an author with an optional message and timestamp paramater. For example you can do the following:
 
 ```ruby
-doc.save!(Time.now)
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' })
+```
+
+
+or using the optional parameters:
+
+```ruby
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My save message.')
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My save message.', Time.now)
 ```
 
 You now have an item that has a single revision in `master` state (draft). You can
-update the document's content and save again
+update the document's content and save again with or without a commit message.
 
 ```ruby
 doc.tags << "Updated"
-doc.save!(Time.now)
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' })
+```
+
+or
+
+```ruby
+doc.tags << "Updated"
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My comment for the update.')
 ```
 
 The document now has two revisions. Every save creates a new revision. All saves
@@ -89,7 +104,7 @@ ContentItem.open('b1ff909250a5fda83042abc86f7033f9')
 Once the document is ready to be seen you can publish it
 
 ```ruby
-doc.promote!('master', 'published', 'Published the document!', Time.now)
+doc.promote!('master', 'published', { name: 'The Colonel', email: 'colonel@example.com' }, 'Published the document!')
 ```
 
 That takes the current revision of `master` and creates a `published` revision from it.
