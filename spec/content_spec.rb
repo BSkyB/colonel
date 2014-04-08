@@ -71,6 +71,12 @@ describe Content do
 
       expect(c.join(",")).to eq('foo,bar,baz')
     end
+
+    it "should respond to respond_to? correctly" do
+      c = Content.new(['foo', 'bar', 'baz'])
+
+      expect(c).to respond_to(:each)
+    end
   end
 
   describe "serialization" do
