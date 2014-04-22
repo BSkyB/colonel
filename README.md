@@ -16,7 +16,7 @@ And then execute:
 
 ### Dependencies
 
-The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 to work.  
+The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 to work.
 
 ## Usage
 
@@ -39,6 +39,7 @@ The `Colonel` module exposes a `config` struct for configuration options
 ```ruby
 Colonel.config.storage_path = 'tmp/colonel_storage/'
 Colonel.config.elasticsearch_host = 'elasticsearch.myapp.com:9200'
+Colonel.config.rugged_backend = backend_instance # optional, see below
 ```
 
 ### Create or open a ContenItem
@@ -196,6 +197,20 @@ class DocumentItem < Colonel::ContentItem
     }
   end
 end
+```
+
+### Alternative backends
+
+Internally, Colonel uses rugged for content item storage. Apart from the default file storage it supports
+alternative storage backends for rugged. For example, you could use [rugged-redis](http://github.com/redbadger/rugged-redis) to store to redis.
+
+To set the backend, use the configuration
+
+```ruby
+require 'rugged-redis'
+
+redis_backend = Rugged::Redis::Backend.new(host: '127.0.0.1', port: 6379, password: 'muchsecretwow')
+Colonel.config.rugged_backend = redis_backend
 ```
 
 ### Integrating with ActiveModel

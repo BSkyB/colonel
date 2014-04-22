@@ -4,3 +4,4 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'simplecov', :require => false, :group => :test
+gem 'rugged', git: 'git://github.com/redbadger/rugged.git', branch: 'backends-wip', submodules: true

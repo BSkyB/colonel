@@ -177,7 +177,11 @@ module Colonel
 
     # Internal: The Rugged repository object for the given document
     def repository
-      @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare)
+      unless Colonel.config.rugged_backend.nil?
+        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare, backend: Colonel.config.rugged_backend)
+      else
+        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare)
+      end
     end
 
     # Class methods
@@ -191,7 +195,11 @@ module Colonel
       # Returns a Document instance
       def open(name, rev = nil)
         begin
-          repo = Rugged::Repository.new(File.join(Colonel.config.storage_path, name))
+          unless Colonel.config.rugged_backend.nil?
+            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, name), backend: Colonel.config.rugged_backend)
+          else
+            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, name))
+          end
         rescue Rugged::OSError
           return nil
         end
