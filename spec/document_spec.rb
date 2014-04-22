@@ -34,6 +34,35 @@ describe Document do
     end
   end
 
+  describe "alternative storage" do
+    let :doc do
+      Object.new
+    end
+
+    before :each do
+      Colonel.config.rugged_backend = :foo
+    end
+
+    after :each do
+      Colonel.config.rugged_backend = nil
+    end
+
+    it "should init with a given backend" do
+      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare, backend: :foo)
+
+      Document.new('test').repository
+    end
+
+    it "should open with a given backend" do
+      Document.stub(:new).and_return(doc)
+      doc.stub(:load!)
+
+      Rugged::Repository.should_receive(:bare).with("storage/test", backend: :foo)
+
+      Document.open("test")
+    end
+  end
+
   describe "saving to storage" do
     let :repo do
       Object.new
@@ -155,7 +184,7 @@ describe Document do
     end
 
     it "should open the repository and get HEAD" do
-      Rugged::Repository.should_receive(:new).with("storage/test").and_return(repo)
+      Rugged::Repository.should_receive(:bare).with("storage/test").and_return(repo)
       repo.should_receive(:head).and_return Struct.new(:target).new('abcdef')
       repo.should_receive(:lookup).with('abcdef').and_return(commit)
       commit.should_receive(:tree).and_return(tree)

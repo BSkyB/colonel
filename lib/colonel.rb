@@ -11,9 +11,10 @@ module Colonel
   #
   # Colonel.config.storage_path - location to store git repo on disk
   # Colonel.config.elasticsearch_host - host for elasticsearch
+  # Colonel.config.rugged_backend - storage backend, an instance of Rugged::Backend
   #
   # Returns a config struct
   def self.config
-    @config ||= Struct.new(:storage_path, :elasticsearch_host).new('storage', 'localhost:9200')
+    @config ||= Struct.new(:storage_path, :elasticsearch_host, :rugged_backend).new('storage', 'localhost:9200', nil)
   end
 end
