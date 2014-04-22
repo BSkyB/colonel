@@ -38,7 +38,7 @@ The `Colonel` module exposes a `config` struct for configuration options
 
 ```ruby
 Colonel.config.storage_path = 'tmp/colonel_storage/'
-Colonel.config.elasticsearch_host = 'elasticsearch.myapp.com:9200'
+Colonel.config.elasticsearch_uri = 'elasticsearch.myapp.com:9200'
 Colonel.config.rugged_backend = backend_instance # optional, see below
 ```
 
