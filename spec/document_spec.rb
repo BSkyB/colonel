@@ -65,7 +65,7 @@ describe Document do
 
   describe "saving to storage" do
     let :repo do
-      Object.new
+      Struct.new(:references).new(Object.new)
     end
 
     let :index do
@@ -73,7 +73,7 @@ describe Document do
     end
 
     let :head do
-      Struct.new(:target).new('head')
+      Struct.new(:target_id).new('head')
     end
 
     let :document do
@@ -160,7 +160,7 @@ describe Document do
 
   describe "loading from storage" do
     let :repo do
-      Object.new
+      Struct.new(:references).new(Object.new)
     end
 
     let :commit do
@@ -215,7 +215,7 @@ describe Document do
     end
 
     it "should load a given revision from state" do
-      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(Struct.new(:target).new('abcde'))
+      repo.references.should_receive(:[]).with('refs/heads/preview').and_return(Struct.new(:target_id).new('abcde'))
 
       repo.should_receive(:lookup).with('preview').and_raise(Rugged::InvalidError)
 
@@ -239,11 +239,11 @@ describe Document do
     end
 
     let :ref do
-      Struct.new(:target).new('xyz')
+      Struct.new(:target_id).new('xyz')
     end
 
     let :repo do
-      Object.new
+      Struct.new(:references).new(Object.new)
     end
 
     let :commit do
@@ -260,7 +260,7 @@ describe Document do
     it "should list past revisions" do
       doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-      Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+      repo.references.should_receive(:[]).with('refs/heads/preview').and_return(ref)
       repo.should_receive(:lookup).with('xyz').and_return(commit)
 
       history = []
@@ -276,7 +276,7 @@ describe Document do
 
   describe "states" do
     let :repo do
-      Object.new
+      Struct.new(:references).new(Object.new)
     end
 
     let :index do
@@ -288,11 +288,11 @@ describe Document do
     end
 
     let :ref1 do
-      Struct.new(:target).new('xyz1')
+      Struct.new(:target_id).new('xyz1')
     end
 
     let :ref2 do
-      Struct.new(:target).new('xyz2')
+      Struct.new(:target_id).new('xyz2')
     end
 
     let :time do
@@ -303,8 +303,8 @@ describe Document do
       it "should commit with parents from master and preview and update preview" do
         repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
 
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/master').and_return(ref1)
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(ref2)
+        repo.references.should_receive(:[]).with('refs/heads/master').and_return(ref1)
+        repo.references.should_receive(:[]).with('refs/heads/preview').and_return(ref2)
 
         Rugged::Index.should_receive(:new).and_return index
 
@@ -328,8 +328,8 @@ describe Document do
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
         repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
 
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/master').and_return(ref1)
-        Rugged::Reference.should_receive(:lookup).with(repo, 'refs/heads/preview').and_return(nil)
+        repo.references.should_receive(:[]).with('refs/heads/master').and_return(ref1)
+        repo.references.should_receive(:[]).with('refs/heads/preview').and_return(nil)
 
         Rugged::Index.should_receive(:new).and_return index
 
@@ -357,11 +357,11 @@ describe Document do
       end
 
       let :ref do
-        Struct.new(:target).new('xyz')
+        Struct.new(:target_id).new('xyz')
       end
 
       let :repo do
-        Object.new
+        Struct.new(:references).new(Object.new)
       end
 
       let :preview_commit do
@@ -387,7 +387,7 @@ describe Document do
       it "should check whether a draft was promoted to preview" do
         doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
         repo.stub(:lookup).with('xyz').and_return(preview_commit)
 
         expect(doc.has_been_promoted?('preview', 'd1')).to be_false
@@ -400,7 +400,7 @@ describe Document do
       it "should check whether a draft was promoted to published" do
         doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/published').and_return(ref)
+        repo.references.stub(:[]).with('refs/heads/published').and_return(ref)
         repo.stub(:lookup).with('xyz').and_return(publish_commit)
 
         expect(doc.has_been_promoted?('published', 'd1')).to be_false
@@ -420,11 +420,11 @@ describe Document do
       end
 
       let :ref do
-        Struct.new(:target).new('xyz')
+        Struct.new(:target_id).new('xyz')
       end
 
       let :repo do
-        Object.new
+        Struct.new(:references).new(Object.new)
       end
 
       let :preview_commit do
@@ -445,7 +445,7 @@ describe Document do
       it "should find given branch head's left parent and update the ref to it" do
         doc = Document.new('test', revision: 'foo', repo: repo)
 
-        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
         repo.stub(:lookup).with('xyz').and_return(preview_commit)
         ref.should_receive(:set_target).with('p1')
 
@@ -455,7 +455,7 @@ describe Document do
       it "should find given branch head's and remove it if it doesn't have a parent" do
         doc = Document.new('test', revision: 'foo', repo: repo)
 
-        Rugged::Reference.stub(:lookup).with(repo, 'refs/heads/preview').and_return(ref)
+        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
         repo.stub(:lookup).with('xyz').and_return(preview_commit.parents[0])
 
         ref.should_receive(:delete!)

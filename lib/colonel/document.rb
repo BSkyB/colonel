@@ -41,7 +41,7 @@ module Colonel
     #
     # Returns the sha of the created revision
     def save!(author, message = '', timestamp = Time.now)
-      parents = (repository.empty? ? [] : [repository.head.target].compact)
+      parents = (repository.empty? ? [] : [repository.head.target_id].compact)
       @revision = commit!(@content, parents, 'refs/heads/master', author, message, timestamp)
     end
 
@@ -57,7 +57,7 @@ module Colonel
       begin
         rev_obj = repository.lookup(rev)
       rescue Rugged::InvalidError
-        rev = Rugged::Reference.lookup(repository, "refs/heads/#{rev}").target
+        rev = repository.references["refs/heads/#{rev}"].target_id
         rev_obj = repository.lookup(rev)
       end
 
@@ -77,8 +77,8 @@ module Colonel
     # to the block and returns nothing.
     def history(state = nil, &block)
       rev = if state
-        ref = Rugged::Reference.lookup(repository, "refs/heads/#{state}")
-        rev = ref.target if ref
+        ref = repository.references["refs/heads/#{state}"]
+        rev = ref.target_id if ref
       else
         revision
       end
@@ -115,11 +115,11 @@ module Colonel
     #
     # Returns the sha of the created revision.
     def promote!(from, to, author, message = '', timestamp = Time.now)
-      from_ref = Rugged::Reference.lookup(repository, "refs/heads/#{from}")
-      to_ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+      from_ref = repository.references["refs/heads/#{from}"]
+      to_ref = repository.references["refs/heads/#{to}"]
 
-      from_sha = from_ref.target
-      to_sha = to_ref.target if to_ref
+      from_sha = from_ref.target_id
+      to_sha = to_ref.target_id if to_ref
 
       commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", author, message, timestamp)
     end
@@ -138,10 +138,10 @@ module Colonel
     # rev - the revision to look for, default to the current revision (optional)
     def has_been_promoted?(to, rev = nil)
       rev ||= revision
-      ref = Rugged::Reference.lookup(repository, "refs/heads/#{to}")
+      ref = repository.references["refs/heads/#{to}"]
       return false unless ref
 
-      start = ref.target
+      start = ref.target_id
 
       commit = repository.lookup(start)
       has_ancestor?(commit, :first) do |bc|
@@ -159,8 +159,8 @@ module Colonel
     #
     # Returns the new current revision in the given state
     def rollback!(state)
-      ref = Rugged::Reference.lookup(repository, "refs/heads/#{state}")
-      sha = ref.target if ref
+      ref = repository.references["refs/heads/#{state}"]
+      sha = ref.target_id if ref
 
       commit = repository.lookup(sha)
 

@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'pry'
 
 TITLES = ['Broadband help', 'Speed up your internet', 'New channels available']
 SLUGS = ['broadband-help', 'speed-up-your-internet', 'new-channels-available']
@@ -38,59 +39,85 @@ describe "Stress test", live: true do
 
   it "should create a 100 documents without a hitch" do
     doc_ids = []
+    published_ids = []
 
-    expect do
-      docs = (1..100).to_a.map do |i|
-        info = {
-          title: TITLES.sample(1).first,
-          tags: TAGS.sample(5),
-          slug: "#{SLUGS.sample(1).first}_#{i}",
-          abstract: CONTENT.sample(1).first,
-          body: CONTENT.sample(4).flatten.join("\n\n")
-        }
+    docs = (1..100).to_a.map do |i|
+      info = {
+        title: TITLES.sample(1).first,
+        tags: TAGS.sample(5),
+        slug: "#{SLUGS.sample(1).first}_#{i}",
+        abstract: CONTENT.sample(1).first,
+        body: CONTENT.sample(4).flatten.join("\n\n")
+      }
 
-        doc = ContentItem.new(info)
-        doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
+      doc = ContentItem.new(info)
+      doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
-        doc_ids << doc.id
+      expect(doc.history('master').length).to eq(1)
 
-        doc.body += CONTENT.sample(1).first
-        doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
+      doc_ids << doc.id
 
-        doc.tags += TAGS.sample(2)
+      doc.body += CONTENT.sample(1).first
+      doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
-        doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
+      expect(doc.history('master').length).to eq(2)
 
-        doc
-      end
+      doc.tags += TAGS.sample(2)
 
-      docs.sample(30).each do |doc|
-        doc.publish!
-      end
+      doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
-      docs.sample(50).each do |doc|
-        doc.tags = doc.tags.sample(5)
+      expect(doc.history('master').length).to eq(3)
 
-        doc.save!({name: "John Doe", email: "john@example.com"}, "Another commit message")
-      end
+      doc
+    end
 
-      docs.select {|d| !d.most_recent_published? }.sample(20).each do |doc|
-        doc.publish!
-      end
+    docs.sample(30).each do |doc|
+      doc.promote!('master', 'published', {name: "John Doe", email: "john@example.com"}, "Published!")
+      published_ids << doc.id
 
-      docs.sample(40).each do |doc|
-        doc.title += " (updated)"
+      expect(doc.history('published').length).to be >= 1
+    end
 
-        doc.save
-      end
+    docs.sample(50).each do |doc|
+      doc.tags = doc.tags.sample(5)
 
-      puts "Generated #{docs.length} documents.\n"
-    end.not_to raise_error
+      doc.save!({name: "John Doe", email: "john@example.com"}, "Another commit message")
+
+      expect(doc.history('master').length).to eq(4)
+    end
+
+    docs.select {|d| !d.has_been_promoted?('published', d.revision) }.sample(20).each do |doc|
+      doc.promote!('master', 'published', {name: "John Doe", email: "john@example.com"}, "Published (possibly again)!")
+      expect(doc.history('published').length).to be >= 1
+    end
+
+    docs.sample(40).each do |doc|
+      doc.title += " (updated)"
+
+      doc.save!({name: "John Doe", email: "john@example.com"}, "Final save")
+    end
 
     doc_ids.each do |id|
       doc = ContentItem.open(id)
 
-      expect(TITLES).to include(doc.title)
+      expect(doc.revision).to match(/[a-z0-9]{40}/)
     end
+
+    published_ids.each do |id|
+      doc = ContentItem.open(id)
+
+      pub_rev = nil
+      doc.history('master') do |c|
+        if doc.has_been_promoted?('published', c[:rev])
+          pub_rev = c[:rev]
+          break
+        end
+      end
+
+      binding.pry if pub_rev.nil?
+
+      expect(pub_rev).not_to be_nil
+    end
+
   end
 end
