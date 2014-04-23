@@ -52,7 +52,7 @@ module Colonel
     #
     # Returns the sha of the loaded revision.
     def load!(rev = nil)
-      rev ||= repository.head.target
+      rev ||= repository.head.target_id
 
       begin
         rev_obj = repository.lookup(rev)
