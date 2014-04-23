@@ -37,6 +37,8 @@ describe "Stress test", live: true do
   end
 
   it "should create a 100 documents without a hitch" do
+    doc_ids = []
+
     expect do
       docs = (1..100).to_a.map do |i|
         info = {
@@ -50,26 +52,25 @@ describe "Stress test", live: true do
         doc = ContentItem.new(info)
         doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
+        doc_ids << doc.id
+
         doc.body += CONTENT.sample(1).first
         doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
         doc.tags += TAGS.sample(2)
 
-        puts "Saving #{doc.id}\n"
         doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
         doc
       end
 
       docs.sample(30).each do |doc|
-        puts "Publishing #{doc.id}\n"
         doc.publish!
       end
 
       docs.sample(50).each do |doc|
         doc.tags = doc.tags.sample(5)
 
-        puts "Saving #{doc.id}\n"
         doc.save!({name: "John Doe", email: "john@example.com"}, "Another commit message")
       end
 
@@ -80,11 +81,16 @@ describe "Stress test", live: true do
       docs.sample(40).each do |doc|
         doc.title += " (updated)"
 
-        puts "Saving #{doc.id}\n"
         doc.save
       end
 
       puts "Generated #{docs.length} documents.\n"
     end.not_to raise_error
+
+    doc_ids.each do |id|
+      doc = ContentItem.open(id)
+
+      expect(TITLES).to include(doc.title)
+    end
   end
 end
