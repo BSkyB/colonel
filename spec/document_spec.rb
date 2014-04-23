@@ -185,7 +185,7 @@ describe Document do
 
     it "should open the repository and get HEAD" do
       Rugged::Repository.should_receive(:bare).with("storage/test").and_return(repo)
-      repo.should_receive(:head).and_return Struct.new(:target).new('abcdef')
+      repo.should_receive(:head).and_return Struct.new(:target_id).new('abcdef')
       repo.should_receive(:lookup).with('abcdef').and_return(commit)
       commit.should_receive(:tree).and_return(tree)
       tree.should_receive(:first).and_return({oid: '12345', name: 'content'})
