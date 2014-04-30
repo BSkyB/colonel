@@ -184,6 +184,7 @@ describe ContentItem do
         indices.should_receive(:create).with(index: 'colonel-content', body: {
           mappings: {
             'content_item' => ContentItem.item_mapping,
+            'content_item_latest' => ContentItem.item_mapping,
             'content_item_rev' => ContentItem.send(:default_revision_mapping)
           }
         }).and_return(true)
@@ -264,6 +265,7 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
@@ -275,6 +277,7 @@ describe ContentItem do
         ci.document.should_receive(:save!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
@@ -286,6 +289,7 @@ describe ContentItem do
         ci.document.should_receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
@@ -308,6 +312,7 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
@@ -326,6 +331,7 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
+        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
         client.should_receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
 
@@ -429,7 +435,7 @@ describe ContentItem do
         }
 
         client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
-        ContentItem.search(match: {id: 'abcdef'})
+        ContentItem.search(query: { match: {id: 'abcdef'} })
       end
 
       it "should sort search" do

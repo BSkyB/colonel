@@ -109,8 +109,12 @@ module Colonel
 
       body = body.merge(@content.plain)
 
+      latest_id = "#{@id}"
       item_id = "#{@id}-#{state}"
       rev_id = "#{@id}-#{sha}"
+
+      # Index the latest document state for global searches
+      self.class.es_client.index(index: self.class.index_name, type: self.class.latest_type_name.to_s, id: latest_id, body: body)
 
       # Index the document
       self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
@@ -186,12 +190,14 @@ module Colonel
         updated_at: updated_at.iso8601
       }
 
+      latest_id = "#{ci.id}"
       item_id = "#{ci.id}-#{state}"
       rev_id = "#{ci.id}-#{from_sha}"
 
       body = body.merge(Content.from_json(ci.document.content).plain)
 
       # reindex the document
+      self.class.es_client.index(index: self.class.index_name, type: self.class.latest_type_name, id: latest_id, body: body)
       self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
 
       # delete the old revision
@@ -235,11 +241,12 @@ module Colonel
       # Public: List all the content items. Supports filtering by state, sorting and pagination.
       #
       # opts  - options hash
-      #         :state - state to filter to
-      #         :sort  - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
+      #         :state  - state to filter to
+      #         :latest - denotes to filter only on latest state of content items.
+      #         :sort   - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
       #                  Wrapped in an array automatically.
-      #         :from  - how many results to skip
-      #         :size  - how many results to return
+      #         :from   - how many results to skip
+      #         :size   - how many results to return
       #
       # Returns the elasticsearch result set
       def list(opts = {})
@@ -253,10 +260,12 @@ module Colonel
         query[:sort] = opts[:sort] if opts[:sort]
         query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
 
+        item_type = "#{item_type_name.to_s}_latest" if opts[:latest]
+        item_type = "#{item_type_name.to_s}" if !opts[:latest]
 
-        res = es_client.search(index: index_name, type: item_type_name.to_s, body: query)
+        res = es_client.search(index: index_name, type: item_type, body: query)
 
-        hydrate_hits(res["hits"])
+        hydrate_hits(res)
       end
 
       # Search: Generic search support, delegates to elasticsearch. Searches all documents of type [item_type_name].
@@ -267,16 +276,17 @@ module Colonel
       # query - string, or elastic search query DSL. Forwarded to elasticsearch
       # opts  - an options hash
       #         :history - boolean, search across all revisions. Default false.
+      #         :latest - denotes to filter only on latest state of content items.
       #         :sort - sort specification
       #         :from - how many results to skip
       #         :size - how many results to show
       #
       # Returns the elasticsearch result set
       def search(query, opts = {})
-        query = { query_string: { query: query }} if query.is_a?(String)
-        query = { has_child: { type: revision_type_name.to_s, query: query }} if opts[:history]
+        query = { query: { query_string: { query: query }}} if query.is_a?(String) && !opts[:history]
+        query = { query: { has_child: { type: revision_type_name.to_s, query: { query_string: { query: query }}}}} if opts[:history]
 
-        body = { query: query }
+        body = query
 
         body[:from] = opts[:from] if opts[:from]
         body[:size] = opts[:size] if opts[:size]
@@ -284,9 +294,12 @@ module Colonel
         body[:sort] = opts[:sort] if opts[:sort]
         body[:sort] = [body[:sort]] if body[:sort] && !body[:sort].is_a?(Array)
 
-        res = es_client.search(index: index_name, type: item_type_name.to_s, body: body)
+        item_type = "#{item_type_name.to_s}_latest" if opts[:latest]
+        item_type = "#{item_type_name.to_s}" if !opts[:latest]
 
-        hydrate_hits(res["hits"])
+        res = es_client.search(index: index_name, type: item_type, body: body)
+
+        hydrate_hits(res)
       end
 
       # Public: Set or retrieve the ittem type in elasticsearch
@@ -345,11 +358,17 @@ module Colonel
         item_type_name + "_rev"
       end
 
+      # Internal: Latest state content item type name for elastic search.
+      def latest_type_name
+        item_type_name + "_latest"
+      end
+
       # Public: idempotently create the ES index
       def ensure_index!
         unless es_client.indices.exists index: index_name
           body = { mappings: {} }
           body[:mappings][item_type_name] = item_mapping
+          body[:mappings][latest_type_name] = item_mapping
           body[:mappings][revision_type_name] = revision_mapping
 
           es_client.indices.create index: index_name, body: body
@@ -374,12 +393,17 @@ module Colonel
 
       # Internal: Walk through elasticsearch hits and turn them into ContentItem instances
       def hydrate_hits(hits)
-        hits["hits"] = hits["hits"].map do |hit|
+        hits = hits["hits"]
+        facets = hits["facets"]
+
+        hits["hits"]= hits["hits"].map do |hit|
           open(hit["_source"]["id"], hit["_source"]["revision"])
         end
 
         # FIXME this should probably be a result set class with Enumerable mixin
-        {total: hits["total"], hits: hits["hits"]}
+        result = {total: hits["total"], hits: hits["hits"] }
+        result.merge!({ facets: facets }) if facets
+        result
       end
 
       # Internal: Default revision mapping, used for all search in history

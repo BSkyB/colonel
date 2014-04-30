@@ -162,13 +162,33 @@ ContentItem.list(state: 'published', size: 10, from: 50, sort: {updated_at: 'des
 # => { total: 43, hits: [ ... ContentItem instances ... ] }
 ```
 
-If you need more than that, you can search all the content. You need to provide a state
-and can add the same options the list method has.
+If you need more than that, you can search across all of the content. You can do a simple query string search or you can provide a query object (ElasticSearch Query DSL) for more complex searches.  There are two arguments the `query` and optional `opts`.
 
+##### Opts
+* `size` - Size for a single page
+* `from` - Start from a certain number of results
+* `latest` - Denotes searching across only the current state of a document rather than including its revisions.
+* `sort` - sort specification from elastic search.
+
+#### Query using DSL
 ```ruby
-ContentItem.search('published', 'How to use the Colonel?', size: 10, from: 20)
-# => { total: 12, hits: [ ... ContentItem instances ... ] }
+query = {
+  query: { 
+    filtered: { 
+      query: {
+        query_string: { query: "My Document" } 
+      }
+    }
+  }
+}
+
+ContentItem.search(query, { size: 10 })
 ```
+
+#### Query using strings
+```ruby
+ContentItem.search('How to use the Colonel?', { size: 10 })
+````
 
 The query can be either a string or a Hash. It gets passed through to the underlying Elasticsearch
 index, so you can use all the power that [Elasticsearch provides]().
