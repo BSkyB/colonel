@@ -168,6 +168,7 @@ If you need more than that, you can search across all of the content. You can do
 * `size` - Size for a single page
 * `from` - Start from a certain number of results
 * `latest` - Denotes searching across only the current state of a document rather than including its revisions.
+* `sort` - sort specification from elastic search.
 
 #### Query using DSL
 ```ruby

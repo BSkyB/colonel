@@ -241,11 +241,12 @@ module Colonel
       # Public: List all the content items. Supports filtering by state, sorting and pagination.
       #
       # opts  - options hash
-      #         :state - state to filter to
-      #         :sort  - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
+      #         :state  - state to filter to
+      #         :latest - denotes to filter only on latest state of content items.
+      #         :sort   - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
       #                  Wrapped in an array automatically.
-      #         :from  - how many results to skip
-      #         :size  - how many results to return
+      #         :from   - how many results to skip
+      #         :size   - how many results to return
       #
       # Returns the elasticsearch result set
       def list(opts = {})
@@ -259,8 +260,8 @@ module Colonel
         query[:sort] = opts[:sort] if opts[:sort]
         query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
 
-        item_type = "#{item_type_name.to_s}_global" if opts[:global]
-        item_type = "#{item_type_name.to_s}" if !opts[:global]
+        item_type = "#{item_type_name.to_s}_latest" if opts[:latest]
+        item_type = "#{item_type_name.to_s}" if !opts[:latest]
 
         res = es_client.search(index: index_name, type: item_type, body: query)
 
@@ -275,6 +276,7 @@ module Colonel
       # query - string, or elastic search query DSL. Forwarded to elasticsearch
       # opts  - an options hash
       #         :history - boolean, search across all revisions. Default false.
+      #         :latest - denotes to filter only on latest state of content items.
       #         :sort - sort specification
       #         :from - how many results to skip
       #         :size - how many results to show
