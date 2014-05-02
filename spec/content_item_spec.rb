@@ -87,7 +87,7 @@ describe ContentItem do
       con = ContentItem.new(key: 'value', another: ['array'])
 
       con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
-      con.document.should_receive(:save!).with(author, '', time).and_return('abcdef')
+      con.document.should_receive(:save_in!).with('master', author, '', time).and_return('abcdef')
 
       expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq('abcdef')
     end
@@ -96,7 +96,7 @@ describe ContentItem do
       con = ContentItem.new(key: 'value', another: ['array'])
 
       con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
-      con.document.should_receive(:save!).with(author, 'save from the colonel', time).and_return('abcdef')
+      con.document.should_receive(:save_in!).with('master', author, 'save from the colonel', time).and_return('abcdef')
 
       expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'save from the colonel', time)).to eq('abcdef')
     end
@@ -274,7 +274,7 @@ describe ContentItem do
 
       it "should index the document when saved" do
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:save!).and_return('xyz1')
+        ci.document.should_receive(:save_in!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
         client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)

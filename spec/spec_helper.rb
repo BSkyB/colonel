@@ -13,6 +13,8 @@ else
   SimpleCov.start
 end
 
+require 'pry'
+
 require 'colonel'
 include Colonel
 

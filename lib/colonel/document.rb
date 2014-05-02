@@ -41,8 +41,26 @@ module Colonel
     #
     # Returns the sha of the created revision
     def save!(author, message = '', timestamp = Time.now)
-      parents = (repository.empty? ? [] : [repository.head.target_id].compact)
-      @revision = commit!(@content, parents, 'refs/heads/master', author, message, timestamp)
+      save_in!('master', author, message, timestamp)
+    end
+
+    # Public: save the document as a new revision. Commits the content to the top of `state`
+    # and updates the Document's revision to the newly created commit.
+    #
+    # WARNING: don't use this lightly.
+    #
+    # state     - the name of the state in which to save changes
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message for the commit (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
+    #
+    # Returns the sha of the created revision
+    def save_in!(state, author, message = '', timestamp = Time.now)
+      refs = "refs/heads/#{state}"
+      parents = (repository.empty? ? [] : [repository.references[refs].target_id].compact)
+      @revision = commit!(@content, parents, refs, author, message, timestamp)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -243,7 +261,7 @@ module Colonel
     #
     # Returns the sha of the new commit
     def commit!(content, parents, ref, author, message = '', timestamp = Time.Now)
-      oid = repository.write(@content, :blob)
+      oid = repository.write(content, :blob)
 
       index = Rugged::Index.new
       index.add(path: 'content', oid: oid, mode: 0100644)

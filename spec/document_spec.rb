@@ -64,6 +64,10 @@ describe Document do
   end
 
   describe "saving to storage" do
+    let(:references) do
+      double(:references)
+    end
+
     let :repo do
       Struct.new(:references).new(Object.new)
     end
@@ -86,6 +90,7 @@ describe Document do
 
     before do
       document.stub(:repository).and_return(repo)
+      references.stub(:[]).with('refs/heads/master').and_return(head)
     end
 
     it "should create a commit on first save without a commit message" do
@@ -141,7 +146,7 @@ describe Document do
       index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
       index.should_receive(:write_tree).with(repo).and_return 'foo'
       repo.should_receive(:empty?).and_return(false)
-      repo.should_receive(:head).and_return(head)
+      repo.should_receive(:references).and_return(references)
 
       options = {
         tree: 'foo',

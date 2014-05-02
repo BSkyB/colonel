@@ -77,10 +77,24 @@ module Colonel
     #
     # Returns the sha of the newly created revision
     def save!(author, message = '', timestamp = Time.now)
-      document.content = @content.to_json
-      sha = document.save!(author, message, timestamp)
+      save_in!('master', author, message, timestamp)
+    end
 
-      index!(state: 'master', updated_at: timestamp, revision: sha)
+    # Public: Save the content item and update the search index
+    #
+    # state     - the name of the state in which to save changes
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message of the save (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
+    #
+    # Returns the sha of the newly created revision
+    def save_in!(state, author, message = '', timestamp = Time.now)
+      document.content = @content.to_json
+      sha = document.save_in!(state, author, message, timestamp)
+
+      index!(state: state, updated_at: timestamp, revision: sha)
 
       sha
     end
