@@ -325,7 +325,7 @@ module Colonel
       # Public: Set or retrieve the index name in elasticsearch
       def index_name(val = nil)
         @index_name = val if val
-        @index_name || 'colonel-content'
+        @index_name || Colonel.config.index_name
       end
 
       # Public: Set custom mapping for your content structure. Yields to a block that
