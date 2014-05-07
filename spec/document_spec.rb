@@ -1,9 +1,26 @@
 require 'spec_helper'
 
 describe Document do
+  let(:root_oid) { 'root-oid' }
+
+  let(:root_ref) do
+    double(:root_ref).tap do |root_ref|
+      allow(root_ref).to receive(:target_id).and_return(root_oid)
+    end
+  end
+
+  let(:root_commit) do
+    double(:root_commit,
+      oid: root_oid,
+      message: 'First Commit',
+      author: {},
+      time: time,
+      parents: [])
+  end
+
   describe "creation" do
     before do
-      Rugged::Repository.stub(:new).and_return nil
+      allow(Rugged::Repository).to receive(:new).and_return nil
     end
 
     it "should create a document" do
@@ -28,7 +45,7 @@ describe Document do
 
   describe "git storage" do
     it "should create a repository with the document's name when asked for repo" do
-      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare)
+      expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare)
 
       Document.new('test').repository
     end
@@ -48,28 +65,34 @@ describe Document do
     end
 
     it "should init with a given backend" do
-      Rugged::Repository.should_receive(:init_at).with('storage/test', :bare, backend: :foo)
+      expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare, backend: :foo)
 
       Document.new('test').repository
     end
 
     it "should open with a given backend" do
-      Document.stub(:new).and_return(doc)
-      doc.stub(:load!)
+      allow(Document).to receive(:new).and_return(doc)
+      allow(doc).to receive(:load!)
 
-      Rugged::Repository.should_receive(:bare).with("storage/test", backend: :foo)
+      expect(Rugged::Repository).to receive(:bare).with("storage/test", backend: :foo)
 
       Document.open("test")
     end
   end
 
   describe "saving to storage" do
+    let(:root_oid) { 'rootid12' }
+
     let(:references) do
-      double(:references)
+      double(:references).tap do |references|
+        allow(references).to receive(:[]).with('refs/heads/master').and_return(head)
+      end
     end
 
     let :repo do
-      Struct.new(:references).new(Object.new)
+      double(:repo).tap do |repo|
+        allow(repo).to receive(:references).and_return(references)
+      end
     end
 
     let :index do
@@ -77,7 +100,7 @@ describe Document do
     end
 
     let :head do
-      Struct.new(:target_id).new('head')
+      Struct.new(:target_id).new(root_oid)
     end
 
     let :document do
@@ -89,75 +112,90 @@ describe Document do
     end
 
     before do
-      document.stub(:repository).and_return(repo)
-      references.stub(:[]).with('refs/heads/master').and_return(head)
+      allow(document).to receive(:repository).and_return(repo)
     end
 
     it "should create a commit on first save without a commit message" do
-      repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
 
-      Rugged::Index.should_receive(:new).and_return index
-      index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      index.should_receive(:write_tree).with(repo).and_return 'foo'
-      repo.should_receive(:empty?).and_return(true)
+      expect(Rugged::Index).to receive(:new).and_return index
+      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
 
       options = {
         tree: 'foo',
         author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         committer: {email: 'colonel@example.com', name: 'The Colonel', time: time },
         message: '',
-        parents: [],
+        parents: [root_oid],
         update_ref: 'refs/heads/master'
       }
 
-      Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
+
+      expect(document).to receive(:init_repository).with(repo, time)
 
       expect(document.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq 'foo'
       expect(document.revision).to eq 'foo'
     end
 
     it "should create a commit on first save with a commit message" do
-      repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
 
-      Rugged::Index.should_receive(:new).and_return index
-      index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      index.should_receive(:write_tree).with(repo).and_return 'foo'
-      repo.should_receive(:empty?).and_return(true)
+      expect(Rugged::Index).to receive(:new).and_return index
+      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
 
       options = {
         tree: 'foo',
         author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         message: 'save from the colonel',
-        parents: [],
+        parents: [root_oid],
         update_ref: 'refs/heads/master'
       }
 
-      Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
+
+      expect(document).to receive(:init_repository).with(repo, time)
 
       expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' }, 'save from the colonel', time)).to eq 'foo'
       expect(document.revision).to eq 'foo'
     end
 
-    it "should add a commit on subsequent saves" do
-      repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+    it 'should create a tagged root commit' do
+      allow(repo).to receive(:empty?).and_return(true)
 
-      Rugged::Index.should_receive(:new).and_return index
-      index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      index.should_receive(:write_tree).with(repo).and_return 'foo'
-      repo.should_receive(:empty?).and_return(false)
-      repo.should_receive(:references).and_return(references)
+      the_colonel = { name: 'The Colonel', email: 'colonel@example.com' }
+
+      expect(document).to receive(:commit!).with('', [], 'refs/heads/master', the_colonel, 'First Commit', time).ordered.and_return(root_oid)
+      expect(document).to receive(:commit!).with('some content', [root_oid], 'refs/heads/master', the_colonel, 'Second Commit', time).ordered.once
+
+      expect(repo.references).to receive(:create).with('refs/tags/root', root_oid)
+
+      document.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'Second Commit', time)
+    end
+
+    it "should add a commit on subsequent saves" do
+      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+
+      expect(Rugged::Index).to receive(:new).and_return index
+      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
+      expect(repo).to receive(:references).and_return(references)
+
+      expect(document).to receive(:init_repository).with(repo, time)
 
       options = {
         tree: 'foo',
         author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
         message: 'save from the colonel',
-        parents: ['head'],
+        parents: [root_oid],
         update_ref: 'refs/heads/master'
       }
 
-      Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
       expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' },'save from the colonel', time)).to eq 'foo'
     end
@@ -189,14 +227,14 @@ describe Document do
     end
 
     it "should open the repository and get HEAD" do
-      Rugged::Repository.should_receive(:bare).with("storage/test").and_return(repo)
-      repo.should_receive(:head).and_return Struct.new(:target_id).new('abcdef')
-      repo.should_receive(:lookup).with('abcdef').and_return(commit)
-      commit.should_receive(:tree).and_return(tree)
-      tree.should_receive(:first).and_return({oid: '12345', name: 'content'})
-      repo.should_receive(:lookup).with('12345').and_return(file)
-      file.should_receive(:read_raw).and_return(robj)
-      robj.should_receive(:data).and_return('foo')
+      expect(Rugged::Repository).to receive(:bare).with("storage/test").and_return(repo)
+      expect(repo).to receive(:head).and_return Struct.new(:target_id).new('abcdef')
+      expect(repo).to receive(:lookup).with('abcdef').and_return(commit)
+      expect(commit).to receive(:tree).and_return(tree)
+      expect(tree).to receive(:first).and_return({oid: '12345', name: 'content'})
+      expect(repo).to receive(:lookup).with('12345').and_return(file)
+      expect(file).to receive(:read_raw).and_return(robj)
+      expect(robj).to receive(:data).and_return('foo')
 
       doc = Document.open("test")
       expect(doc).to be_a(Document)
@@ -206,13 +244,13 @@ describe Document do
     end
 
     it "should load a given revision from sha" do
-      repo.should_receive(:lookup).with('abcde').and_return(commit)
-      commit.should_receive(:tree).and_return(tree)
-      tree.should_receive(:first).and_return({oid: 'foo', name: 'content'})
+      expect(repo).to receive(:lookup).with('abcde').and_return(commit)
+      expect(commit).to receive(:tree).and_return(tree)
+      expect(tree).to receive(:first).and_return({oid: 'foo', name: 'content'})
 
-      repo.should_receive(:lookup).with('foo').and_return(file)
-      file.should_receive(:read_raw).and_return(robj)
-      robj.should_receive(:data).and_return('data')
+      expect(repo).to receive(:lookup).with('foo').and_return(file)
+      expect(file).to receive(:read_raw).and_return(robj)
+      expect(robj).to receive(:data).and_return('data')
 
       expect(document.load!('abcde')).to eq('abcde')
       expect(document.revision).to eq('abcde')
@@ -220,17 +258,17 @@ describe Document do
     end
 
     it "should load a given revision from state" do
-      repo.references.should_receive(:[]).with('refs/heads/preview').and_return(Struct.new(:target_id).new('abcde'))
+      expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(Struct.new(:target_id).new('abcde'))
 
-      repo.should_receive(:lookup).with('preview').and_raise(Rugged::InvalidError)
+      expect(repo).to receive(:lookup).with('preview').and_raise(Rugged::InvalidError)
 
-      repo.should_receive(:lookup).with('abcde').and_return(commit)
-      commit.should_receive(:tree).and_return(tree)
-      tree.should_receive(:first).and_return({oid: 'foo', name: 'content'})
+      expect(repo).to receive(:lookup).with('abcde').and_return(commit)
+      expect(commit).to receive(:tree).and_return(tree)
+      expect(tree).to receive(:first).and_return({oid: 'foo', name: 'content'})
 
-      repo.should_receive(:lookup).with('foo').and_return(file)
-      file.should_receive(:read_raw).and_return(robj)
-      robj.should_receive(:data).and_return('data')
+      expect(repo).to receive(:lookup).with('foo').and_return(file)
+      expect(file).to receive(:read_raw).and_return(robj)
+      expect(robj).to receive(:data).and_return('data')
 
       expect(document.load!('preview')).to eq('abcde')
       expect(document.revision).to eq('abcde')
@@ -239,6 +277,7 @@ describe Document do
   end
 
   describe "listing revisions" do
+
     let :time do
       Time.now
     end
@@ -247,33 +286,53 @@ describe Document do
       Struct.new(:target_id).new('xyz')
     end
 
+    let :references do
+      double(:references)
+    end
+
     let :repo do
-      Struct.new(:references).new(Object.new)
+      double(:repo).tap do |repo|
+        allow(repo).to receive(:references).and_return(references)
+      end
     end
 
     let :commit do
       commit = Struct.new(:oid, :message, :author, :time, :parents)
 
-      commit.new('foo', 'hey', 'me', time, [
-        commit.new('bar', 'bye', 'you', time, [
-          commit.new('baz', 'wee', 'him', time, [])
-        ]),
-        commit.new('baz', 'bye', 'you', time, []),
+      # This is the structure here
+      #
+      #    p2 o
+      #     / |
+      # m2 o  o p1
+      #    |/ |
+      # m1 o  |
+      #    | /
+      #    0
+      #
+
+      m1 = commit.new('m1', 'wee', 'him', time, [root_commit])
+
+      commit.new('p2', 'hey', 'me', time, [
+        commit.new('p1', 'bye', 'you', time, [root_commit, m1]),
+        commit.new('m2', 'bye', 'you', time, [m1])
       ])
     end
 
     it "should list past revisions" do
       doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-      repo.references.should_receive(:[]).with('refs/heads/preview').and_return(ref)
-      repo.should_receive(:lookup).with('xyz').and_return(commit)
+      allow(repo.references).to receive(:[])
+
+      expect(repo.references).to receive(:[]).once.with(Document::ROOT_REF).and_return(root_ref)
+      expect(repo.references).to receive(:[]).once.with('refs/heads/preview').and_return(ref)
+      expect(repo).to receive(:lookup).with('xyz').and_return(commit)
 
       history = []
       doc.history('preview') { |cmt| history << cmt}
 
       expect(history).to eq([
-        {rev: 'foo', message: 'hey', author: 'me', time: time},
-        {rev: 'bar', message: 'bye', author: 'you', time: time}
+        {rev: 'p2', message: 'hey', author: 'me', time: time},
+        {rev: 'p1', message: 'bye', author: 'you', time: time}
       ])
     end
   end
@@ -306,15 +365,15 @@ describe Document do
 
     describe "promoting" do
       it "should commit with parents from master and preview and update preview" do
-        repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+        expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
 
-        repo.references.should_receive(:[]).with('refs/heads/master').and_return(ref1)
-        repo.references.should_receive(:[]).with('refs/heads/preview').and_return(ref2)
+        expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
+        expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref2)
 
-        Rugged::Index.should_receive(:new).and_return index
+        expect(Rugged::Index).to receive(:new).and_return index
 
-        index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        index.should_receive(:write_tree).with(repo).and_return 'foo'
+        expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+        expect(index).to receive(:write_tree).with(repo).and_return 'foo'
 
         options = {
           tree: 'foo',
@@ -325,32 +384,33 @@ describe Document do
           update_ref: 'refs/heads/preview'
         }
 
-        Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+        expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
         expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
       end
 
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
-        repo.should_receive(:write).with("some content", :blob).and_return('abcdef')
+        expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
 
-        repo.references.should_receive(:[]).with('refs/heads/master').and_return(ref1)
-        repo.references.should_receive(:[]).with('refs/heads/preview').and_return(nil)
+        expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
+        expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(nil)
+        expect(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
 
-        Rugged::Index.should_receive(:new).and_return index
+        expect(Rugged::Index).to receive(:new).and_return index
 
-        index.should_receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        index.should_receive(:write_tree).with(repo).and_return 'foo'
+        expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+        expect(index).to receive(:write_tree).with(repo).and_return 'foo'
 
         options = {
           tree: 'foo',
           author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
           committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
           message: 'preview from the colonel',
-          parents: ['xyz1'],
+          parents: [root_oid, 'xyz1'],
           update_ref: 'refs/heads/preview'
         }
 
-        Rugged::Commit.should_receive(:create).with(repo, options).and_return 'foo'
+        expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
         expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
       end
@@ -372,50 +432,66 @@ describe Document do
       let :preview_commit do
         commit = Struct.new(:oid, :message, :author, :time, :parents)
 
+        #              o pp1
+        #            / |
+        #          /   |
+        #     p2 o     |
+        #      / |     |
+        # d4 o   |     |
+        #    |   |     |
+        # d3 o   o p1  |
+        #    | / |     |
+        # d2 o   |   /
+        #    |   | /
+        # d1 o   |
+        #    | /
+        #    0
+
         d2 = commit.new('d2', 'x', 'x', time, [
-          commit.new('d1', 'x', 'x', time, [])
+          commit.new('d1', 'x', 'x', time, [root_commit])
         ])
 
-          commit.new('p2', 'x', 'x', time, [
-            commit.new('p1', 'x', 'x', time, [d2]),
-            commit.new('d4', 'x', 'x', time, [
-              commit.new('d3', 'x', 'x', time, [d2])
-            ])
+        commit.new('p2', 'x', 'x', time, [
+          commit.new('p1', 'x', 'x', time, [root_commit, d2]),
+          commit.new('d4', 'x', 'x', time, [
+            commit.new('d3', 'x', 'x', time, [d2])
           ])
+        ])
       end
 
       let :publish_commit do
         commit = Struct.new(:oid, :message, :author, :time, :parents)
-        commit.new('pp1', 'x', 'x', time, [preview_commit])
+        commit.new('pp1', 'x', 'x', time, [root_commit, preview_commit])
       end
 
       it "should check whether a draft was promoted to preview" do
         doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
-        repo.stub(:lookup).with('xyz').and_return(preview_commit)
+        allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
+        allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
+        allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit)
 
-        expect(doc.has_been_promoted?('preview', 'd1')).to be_false
-        expect(doc.has_been_promoted?('preview', 'd2')).to be_true
-        expect(doc.has_been_promoted?('preview', 'd3')).to be_false
-        expect(doc.has_been_promoted?('preview', 'd4')).to be_true
-        expect(doc.has_been_promoted?('preview', 'd5')).to be_false
+        expect(doc.has_been_promoted?('preview', 'd1')).to be false
+        expect(doc.has_been_promoted?('preview', 'd2')).to be true
+        expect(doc.has_been_promoted?('preview', 'd3')).to be false
+        expect(doc.has_been_promoted?('preview', 'd4')).to be true
+        expect(doc.has_been_promoted?('preview', 'd5')).to be false
       end
 
       it "should check whether a draft was promoted to published" do
         doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
-        repo.references.stub(:[]).with('refs/heads/published').and_return(ref)
-        repo.stub(:lookup).with('xyz').and_return(publish_commit)
+        allow(repo.references).to receive(:[]).with('refs/heads/published').and_return(ref)
+        allow(repo).to receive(:lookup).with('xyz').and_return(publish_commit)
 
-        expect(doc.has_been_promoted?('published', 'd1')).to be_false
-        expect(doc.has_been_promoted?('published', 'd2')).to be_false
-        expect(doc.has_been_promoted?('published', 'd3')).to be_false
-        expect(doc.has_been_promoted?('published', 'd4')).to be_true
-        expect(doc.has_been_promoted?('published', 'd5')).to be_false
+        expect(doc.has_been_promoted?('published', 'd1')).to be false
+        expect(doc.has_been_promoted?('published', 'd2')).to be false
+        expect(doc.has_been_promoted?('published', 'd3')).to be false
+        expect(doc.has_been_promoted?('published', 'd4')).to be true
+        expect(doc.has_been_promoted?('published', 'd5')).to be false
 
-        expect(doc.has_been_promoted?('published', 'p1')).to be_false
-        expect(doc.has_been_promoted?('published', 'p2')).to be_true
+        expect(doc.has_been_promoted?('published', 'p1')).to be false
+        expect(doc.has_been_promoted?('published', 'p2')).to be true
       end
     end
 
@@ -450,9 +526,9 @@ describe Document do
       it "should find given branch head's left parent and update the ref to it" do
         doc = Document.new('test', revision: 'foo', repo: repo)
 
-        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
-        repo.stub(:lookup).with('xyz').and_return(preview_commit)
-        ref.should_receive(:set_target).with('p1')
+        allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
+        allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit)
+        expect(ref).to receive(:set_target).with('p1')
 
         expect(doc.rollback!('preview')).to eq('p1')
       end
@@ -460,10 +536,10 @@ describe Document do
       it "should find given branch head's and remove it if it doesn't have a parent" do
         doc = Document.new('test', revision: 'foo', repo: repo)
 
-        repo.references.stub(:[]).with('refs/heads/preview').and_return(ref)
-        repo.stub(:lookup).with('xyz').and_return(preview_commit.parents[0])
+        allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
+        allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit.parents[0])
 
-        ref.should_receive(:delete!)
+        expect(ref).to receive(:delete!)
 
         expect(doc.rollback!('preview')).to be_nil
       end

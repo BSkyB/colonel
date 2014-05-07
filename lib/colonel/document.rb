@@ -12,6 +12,8 @@ module Colonel
   # Documents in all states except `master` can be rolled back to their previous revision (git reset), and
   # a revision history is available for each state separately.
   class Document
+    ROOT_REF = 'refs/tags/root'.freeze
+
     attr_reader :name, :revision
     attr_accessor :content
 
@@ -59,8 +61,17 @@ module Colonel
     # Returns the sha of the created revision
     def save_in!(state, author, message = '', timestamp = Time.now)
       refs = "refs/heads/#{state}"
-      parents = (repository.empty? ? [] : [repository.references[refs].target_id].compact)
+      init_repository(repository, timestamp)
+
+      parents = [repository.references[refs].target_id].compact
       @revision = commit!(@content, parents, refs, author, message, timestamp)
+    end
+
+
+    def init_repository(repository, timestamp = Time.now)
+      return unless repository.empty?
+      revision = commit!('', [], 'refs/heads/master', { name: 'The Colonel', email: 'colonel@example.com' }, 'First Commit', timestamp)
+      repository.references.create(ROOT_REF, revision)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -109,7 +120,7 @@ module Colonel
         results << { rev: commit.oid, message: commit.message, author: commit.author, time: commit.time }
         yield results.last if block_given?
 
-        break if commit.parents.length < 2 && state != 'master'
+        break if first_commit?(commit)
 
         commit = commit.parents.first
       end
@@ -137,9 +148,9 @@ module Colonel
       to_ref = repository.references["refs/heads/#{to}"]
 
       from_sha = from_ref.target_id
-      to_sha = to_ref.target_id if to_ref
+      to_sha = to_ref ? to_ref.target_id : root_commit_oid
 
-      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", author, message, timestamp)
+      commit!(@content, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable
@@ -162,8 +173,8 @@ module Colonel
       start = ref.target_id
 
       commit = repository.lookup(start)
-      has_ancestor?(commit, :first) do |bc|
-        has_ancestor?(bc.parents.last, :last) do |ac|
+      has_ancestor?(commit, :first, :root) do |bc|
+        has_ancestor?(bc.parents.last, :last, :master) do |ac|
           ac && ac.oid == rev
         end
       end
@@ -234,18 +245,37 @@ module Colonel
     # Internal: Checks whether a `start` commit has an ancestor passing the test specified by
     # the block. Stops after a commit with a single parent is tested, to avoid switching branches
     #
-    # start   - Rugged commit object to start with
-    # update  - the update message to send to the commit parrents to get the next one in line
-    # block   - the test. Gets a commit object
-    def has_ancestor?(start, update, &block)
+    # start          - Rugged commit object to start with
+    # update         - the update message to send to the commit parrents to get the next one in line
+    # stop_condition - when to stop the traversal, can be either :bottom, or :master
+    #                  :bottom - stop when "bottom" of the branch is reached
+    #                     (i.e. one of the parents is root)
+    #                  :master - stop when a commit is on the master branch
+    #                     (i.e. has just one parent)
+    # block          - the test. Gets a commit object
+    def has_ancestor?(start, update, stop_condition, &block)
       while start
         return true if yield(start)
-        break if start.parents.length < 2
+
+        break if stop_condition == :bottom && first_commit?(start)
+        break if stop_condition == :master && on_master?(start)
 
         start = start.parents.send(update)
       end
 
       return false
+    end
+
+    def root_commit_oid
+      @root_commit_oid ||= repository.references[ROOT_REF].target_id
+    end
+
+    def first_commit?(commit)
+      commit.parents.map(&:oid).include?(root_commit_oid)
+    end
+
+    def on_master?(commit)
+      commit.parents.length < 2
     end
 
     # Internal: Commit contents of the document with a given parent commits, reference to update
