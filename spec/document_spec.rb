@@ -433,8 +433,8 @@ describe Document do
         commit = Struct.new(:oid, :message, :author, :time, :parents)
 
         #              o pp1
-        #            / |
-        #          /   |
+        #     p3 o   / |
+        #        | /   |
         #     p2 o     |
         #      / |     |
         # d4 o   |     |
@@ -451,17 +451,19 @@ describe Document do
           commit.new('d1', 'x', 'x', time, [root_commit])
         ])
 
-        commit.new('p2', 'x', 'x', time, [
-          commit.new('p1', 'x', 'x', time, [root_commit, d2]),
-          commit.new('d4', 'x', 'x', time, [
-            commit.new('d3', 'x', 'x', time, [d2])
+        commit.new('p3', 'x', 'x', time, [
+          commit.new('p2', 'x', 'x', time, [
+            commit.new('p1', 'x', 'x', time, [root_commit, d2]),
+            commit.new('d4', 'x', 'x', time, [
+              commit.new('d3', 'x', 'x', time, [d2])
+            ])
           ])
         ])
       end
 
       let :publish_commit do
         commit = Struct.new(:oid, :message, :author, :time, :parents)
-        commit.new('pp1', 'x', 'x', time, [root_commit, preview_commit])
+        commit.new('pp1', 'x', 'x', time, [root_commit, preview_commit.parents.first])
       end
 
       it "should check whether a draft was promoted to preview" do
@@ -481,6 +483,7 @@ describe Document do
       it "should check whether a draft was promoted to published" do
         doc = Document.new('test', revision: 'abcdefg', repo: repo)
 
+        allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
         allow(repo.references).to receive(:[]).with('refs/heads/published').and_return(ref)
         allow(repo).to receive(:lookup).with('xyz').and_return(publish_commit)
 

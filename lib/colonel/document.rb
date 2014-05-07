@@ -173,8 +173,8 @@ module Colonel
       start = ref.target_id
 
       commit = repository.lookup(start)
-      has_ancestor?(commit, :first, :root) do |bc|
-        has_ancestor?(bc.parents.last, :last, :master) do |ac|
+      has_ancestor?(commit, :first) do |bc|
+        has_ancestor?(bc.parents.last, :last) do |ac|
           ac && ac.oid == rev
         end
       end
@@ -247,18 +247,12 @@ module Colonel
     #
     # start          - Rugged commit object to start with
     # update         - the update message to send to the commit parrents to get the next one in line
-    # stop_condition - when to stop the traversal, can be either :bottom, or :master
-    #                  :bottom - stop when "bottom" of the branch is reached
-    #                     (i.e. one of the parents is root)
-    #                  :master - stop when a commit is on the master branch
-    #                     (i.e. has just one parent)
     # block          - the test. Gets a commit object
-    def has_ancestor?(start, update, stop_condition, &block)
+    def has_ancestor?(start, update, &block)
       while start
         return true if yield(start)
 
-        break if stop_condition == :bottom && first_commit?(start)
-        break if stop_condition == :master && on_master?(start)
+        break if update == :last && on_master?(start)
 
         start = start.parents.send(update)
       end
