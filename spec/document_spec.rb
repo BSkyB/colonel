@@ -301,6 +301,8 @@ describe Document do
 
       # This is the structure here
       #
+      #       o p3
+      #       |
       #    p2 o
       #     / |
       # m2 o  o p1
@@ -312,9 +314,11 @@ describe Document do
 
       m1 = commit.new('m1', 'wee', 'him', time, [root_commit])
 
-      commit.new('p2', 'hey', 'me', time, [
-        commit.new('p1', 'bye', 'you', time, [root_commit, m1]),
-        commit.new('m2', 'bye', 'you', time, [m1])
+      commit.new('p3', 'meow', 'aliens', time, [
+        commit.new('p2', 'hey', 'me', time, [
+          commit.new('p1', 'bye', 'you', time, [root_commit, m1]),
+          commit.new('m2', 'bye', 'you', time, [m1])
+        ])
       ])
     end
 
@@ -331,12 +335,12 @@ describe Document do
       doc.history('preview') { |cmt| history << cmt}
 
       expect(history).to eq([
-        {rev: 'p2', message: 'hey', author: 'me', time: time},
-        {rev: 'p1', message: 'bye', author: 'you', time: time}
+        {rev: 'p3', message: 'meow', author: 'aliens', time: time, promotion: false},
+        {rev: 'p2', message: 'hey', author: 'me', time: time, promotion: true},
+        {rev: 'p1', message: 'bye', author: 'you', time: time, promotion: true}
       ])
     end
   end
-
 
   describe "states" do
     let :repo do

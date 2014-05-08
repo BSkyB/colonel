@@ -117,7 +117,13 @@ module Colonel
 
       commit = repository.lookup(rev)
       while(commit)
-        results << { rev: commit.oid, message: commit.message, author: commit.author, time: commit.time }
+        results << {
+          rev: commit.oid,
+          message: commit.message,
+          author: commit.author,
+          time: commit.time,
+          promotion: commit.parents.count == 2
+        }
         yield results.last if block_given?
 
         break if first_commit?(commit)
