@@ -1,5 +1,6 @@
 require 'spec_helper'
 require 'pry'
+require 'fileutils'
 
 TITLES = ['Broadband help', 'Speed up your internet', 'New channels available']
 SLUGS = ['broadband-help', 'speed-up-your-internet', 'new-channels-available']
@@ -30,11 +31,19 @@ CONTENT = [
 ]
 
 describe "Stress test", live: true do
+  let :index do
+    DocumentIndex.new('tmp/integration_test')
+  end
+
   before do
     Colonel.config.storage_path = 'tmp/integration_test'
 
     ContentItem.ensure_index!
     ContentItem.put_mapping!
+  end
+
+  after do
+    FileUtils.rm_rf('tmp/integration_test')
   end
 
   it "should create a 100 documents without a hitch" do
@@ -140,5 +149,7 @@ describe "Stress test", live: true do
       expect(pub_rev).not_to be_nil
     end
 
+    expect(index.documents.length).to eq(100)
+    expect(index.documents.sort).to eq(doc_ids.sort)
   end
 end

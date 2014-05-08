@@ -111,8 +111,16 @@ describe Document do
       Time.now
     end
 
+    let :mock_index do
+      index = Object.new
+      allow(index).to receive(:register).with(document.name).and_return(true)
+
+      index
+    end
+
     before do
       allow(document).to receive(:repository).and_return(repo)
+      allow(document).to receive(:index).and_return(mock_index)
     end
 
     it "should create a commit on first save without a commit message" do
@@ -198,6 +206,72 @@ describe Document do
       expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
       expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' },'save from the colonel', time)).to eq 'foo'
+    end
+  end
+
+  describe "registering with index" do
+    let :repo do
+      Struct.new(:references).new(
+        double(:references).tap do |refs|
+          allow(refs).to receive(:[]).with("refs/heads/master").and_return(head)
+        end
+      )
+    end
+
+    let :index do
+      double(:index)
+    end
+
+    let :head do
+      Struct.new(:target_id).new('head')
+    end
+
+    let :document do
+      Document.new "test", content: "some content"
+    end
+
+    let :time do
+      Time.now
+    end
+
+    let :mock_index do
+      index = Object.new
+      allow(index).to receive(:register).with(document.name).and_return(true)
+    end
+
+    before do
+      allow(document).to receive(:repository).and_return(repo)
+    end
+
+    it "shoud have a document index" do
+      expect(document.index).to be_a(DocumentIndex)
+      expect(document.index.storage_path).to eq(Colonel.config.storage_path)
+    end
+
+    it "should register with document index when saving" do
+      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+
+      expect(Rugged::Index).to receive(:new).and_return index
+      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
+      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
+
+      options = {
+        tree: 'foo',
+        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+        committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
+        message: 'save from the colonel',
+        parents: ["head"],
+        update_ref: 'refs/heads/master'
+      }
+
+      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
+
+      expect(document.index).to receive(:register).with(document.name).and_return(true)
+
+      allow(document).to receive(:init_repository).and_return(true)
+
+      expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' }, 'save from the colonel', time)).to eq 'foo'
+      expect(document.revision).to eq 'foo'
     end
   end
 
