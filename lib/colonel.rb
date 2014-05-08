@@ -7,6 +7,8 @@ require "colonel/document_index"
 require "colonel/content"
 require "colonel/content_item"
 
+require "colonel/serializer"
+
 module Colonel
   # Public: Sets configuration options.
   #
