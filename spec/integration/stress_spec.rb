@@ -40,6 +40,7 @@ describe "Stress test", live: true do
   it "should create a 100 documents without a hitch" do
     doc_ids = []
     published_ids = []
+    archived_ids = []
 
     docs = (1..100).to_a.map do |i|
       info = {
@@ -76,6 +77,26 @@ describe "Stress test", live: true do
       published_ids << doc.id
 
       expect(doc.history('published').length).to be >= 1
+    end
+
+    published_ids.each do |pid|
+      doc = Document.open(pid, 'master')
+
+      expect(doc).to have_been_promoted('published')
+    end
+
+    docs.sample(10).each do |doc|
+      doc.promote!('master', 'archived', {name: "John Doe", email: "john@example.com"}, "Archived!")
+      archived_ids << doc.id
+
+      doc.save_in!('archived', {name: "John Doe", email: "john@example.com"}, "Commit message")
+      expect(doc.history('archived').length).to be >= 1
+    end
+
+    archived_ids.each do |pid|
+      doc = Document.open(pid, 'master')
+
+      expect(doc).to have_been_promoted('archived')
     end
 
     docs.sample(50).each do |doc|

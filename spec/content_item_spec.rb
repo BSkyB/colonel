@@ -2,12 +2,12 @@ require 'spec_helper'
 
 describe ContentItem do
   before :each do
-    ContentItem.stub(:setup_search!)
+    allow(ContentItem).to receive(:setup_search!)
   end
 
   describe "config" do
     it "should create an elasticsearch client" do
-      ::Elasticsearch::Client.should_receive(:new).with(host: 'localhost:9200', log: false)
+      expect(::Elasticsearch::Client).to receive(:new).with(host: 'localhost:9200', log: false)
       ContentItem.es_client
     end
   end
@@ -80,14 +80,14 @@ describe ContentItem do
     end
 
     before do
-      ContentItem.any_instance.stub(:index!)
+      allow_any_instance_of(ContentItem).to receive(:index!)
     end
 
     it "should serialize and save content without message" do
       con = ContentItem.new(key: 'value', another: ['array'])
 
-      con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
-      con.document.should_receive(:save!).with(author, '', time).and_return('abcdef')
+      expect(con.document).to receive(:content=).with('{"key":"value","another":["array"]}')
+      expect(con.document).to receive(:save_in!).with('master', author, '', time).and_return('abcdef')
 
       expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq('abcdef')
     end
@@ -95,8 +95,8 @@ describe ContentItem do
     it "should serialize and save content with message" do
       con = ContentItem.new(key: 'value', another: ['array'])
 
-      con.document.should_receive(:content=).with('{"key":"value","another":["array"]}')
-      con.document.should_receive(:save!).with(author, 'save from the colonel', time).and_return('abcdef')
+      expect(con.document).to receive(:content=).with('{"key":"value","another":["array"]}')
+      expect(con.document).to receive(:save_in!).with('master', author, 'save from the colonel', time).and_return('abcdef')
 
       expect(con.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'save from the colonel', time)).to eq('abcdef')
     end
@@ -104,8 +104,8 @@ describe ContentItem do
     it "should load and deserialize content" do
       con = ContentItem.new(nil)
 
-      con.document.should_receive(:load!).with('abc').and_return('abc')
-      con.document.should_receive(:content).and_return('{"key":"value","another":["array"]}')
+      expect(con.document).to receive(:load!).with('abc').and_return('abc')
+      expect(con.document).to receive(:content).and_return('{"key":"value","another":["array"]}')
 
       expect(con.load!('abc')).to eq('abc')
       expect(con.key).to eq('value')
@@ -113,7 +113,7 @@ describe ContentItem do
     end
 
     it "should open a content item by id" do
-      Document.should_receive(:open).and_return(document)
+      expect(Document).to receive(:open).and_return(document)
 
       con = ContentItem.open('axbcd')
 
@@ -123,41 +123,41 @@ describe ContentItem do
 
   describe "document API" do
     before do
-      ContentItem.any_instance.stub(:index!)
-      ContentItem.any_instance.stub(:rollback_index!)
+      allow_any_instance_of(ContentItem).to receive(:index!)
+      allow_any_instance_of(ContentItem).to receive(:rollback_index!)
     end
 
     it "should delegate revision" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:revision).and_return('xyz')
+      expect(con.document).to receive(:revision).and_return('xyz')
 
       expect(con.revision).to eq('xyz')
     end
 
     it "should delegate history" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:history).with('x').and_return('foo')
+      expect(con.document).to receive(:history).with('x').and_return('foo')
 
       expect(con.history('x')).to eq('foo')
     end
 
     it "should delegate promote!" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:promote!).with('x', 'y', {}, 'z', 't').and_return('foo')
+      expect(con.document).to receive(:promote!).with('x', 'y', {}, 'z', 't').and_return('foo')
 
       expect(con.promote!('x', 'y', {}, 'z', 't')).to eq('foo')
     end
 
     it "should delegate has_been_promoted?" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:has_been_promoted?).with('x', 'y').and_return('foo')
+      expect(con.document).to receive(:has_been_promoted?).with('x', 'y').and_return('foo')
 
       expect(con.has_been_promoted?('x', 'y')).to eq('foo')
     end
 
     it "should delegate rollback!" do
       con = ContentItem.new(nil)
-      con.document.should_receive(:rollback!).with('x').and_return('foo')
+      expect(con.document).to receive(:rollback!).with('x').and_return('foo')
 
       expect(con.rollback!('x')).to eq('foo')
     end
@@ -169,7 +169,7 @@ describe ContentItem do
     end
 
     before do
-      ContentItem.stub(:es_client).and_return(client)
+      allow(ContentItem).to receive(:es_client).and_return(client)
     end
 
     describe "suppport" do
@@ -178,10 +178,10 @@ describe ContentItem do
       end
 
       it "should create index if it doesn't exist" do
-        client.stub(:indices).and_return(indices)
+        allow(client).to receive(:indices).and_return(indices)
 
-        indices.should_receive(:exists).with(index: 'colonel-content').and_return(false)
-        indices.should_receive(:create).with(index: 'colonel-content', body: {
+        expect(indices).to receive(:exists).with(index: 'colonel-content').and_return(false)
+        expect(indices).to receive(:create).with(index: 'colonel-content', body: {
           mappings: {
             'content_item' => ContentItem.item_mapping,
             'content_item_latest' => ContentItem.item_mapping,
@@ -193,10 +193,10 @@ describe ContentItem do
       end
 
       it "should not create index if it exists" do
-        client.stub(:indices).and_return(indices)
+        allow(client).to receive(:indices).and_return(indices)
 
-        indices.should_receive(:exists).with(index: 'colonel-content').and_return(true)
-        indices.should_not_receive(:create)
+        expect(indices).to receive(:exists).with(index: 'colonel-content').and_return(true)
+        expect(indices).not_to receive(:create)
 
         ContentItem.send :ensure_index!
       end
@@ -265,41 +265,41 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
 
       it "should index the document when saved" do
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:save!).and_return('xyz1')
+        expect(ci.document).to receive(:save_in!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.save!({ name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
       end
 
       it "should index the document when promoted" do
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
+        expect(ci.document).to receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.promote!('master', 'preview', { email: 'colonel@example.com', name: 'The Colonel' }, 'foo', time)).to eq('xyz1')
       end
 
       it "shoud index the document when rolled back" do
         ci = ContentItem.new(body: "foobar")
-        ci.document.should_receive(:rollback!).and_return('rev1')
-        ci.should_receive(:rollback_index!).with('preview').and_return('rev1')
+        expect(ci.document).to receive(:rollback!).and_return('rev1')
+        expect(ci).to receive(:rollback_index!).with('preview').and_return('rev1')
 
         expect(ci.rollback!('preview')).to eq('rev1')
       end
@@ -312,9 +312,9 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -322,18 +322,18 @@ describe ContentItem do
       it "should rollback an indexed document" do
         ci = ContentItem.new(body: 'foobar')
 
-        ci.should_receive(:clone).and_return(ci)
+        expect(ci).to receive(:clone).and_return(ci)
 
-        ci.should_receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
+        expect(ci).to receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
 
-        ci.should_receive(:load!).with('rev1')
-        ci.document.should_receive(:content).and_return({body: 'old content'}.to_json)
+        expect(ci).to receive(:load!).with('rev1')
+        expect(ci.document).to receive(:content).and_return({body: 'old content'}.to_json)
 
         body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        client.should_receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        client.should_receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        expect(client).to receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
 
         ci.rollback_index!('preview')
       end
@@ -355,7 +355,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list
       end
@@ -371,7 +371,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(state: 'preview')
       end
@@ -390,7 +390,7 @@ describe ContentItem do
           ]
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(sort: {updated_at: 'desc'})
       end
@@ -407,7 +407,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(from: 40, size: 20)
       end
@@ -421,7 +421,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query")
       end
 
@@ -434,7 +434,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search(query: { match: {id: 'abcdef'} })
       end
 
@@ -450,7 +450,7 @@ describe ContentItem do
           ]
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", sort: {updated_at: :desc})
       end
 
@@ -464,7 +464,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", from: 40, size: 20)
       end
 
@@ -482,7 +482,7 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", history: true)
       end
 
@@ -508,8 +508,8 @@ describe ContentItem do
           }
         }
 
-        client.should_receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
-        ContentItem.should_receive(:open).with("abc", "def")
+        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(ContentItem).to receive(:open).with("abc", "def")
 
         ContentItem.search("query")
       end
@@ -590,10 +590,10 @@ describe ContentItem do
           }
         }
 
-        client.stub(:indices).and_return(indices)
+        allow(client).to receive(:indices).and_return(indices)
 
-        indices.should_receive(:put_mapping).with(index: 'colonel-content', type: 'content_item', body: body)
-        indices.should_receive(:put_mapping).with(index: 'colonel-content', type: 'content_item_rev', body: rev_body)
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content', type: 'content_item', body: body)
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content', type: 'content_item_rev', body: rev_body)
 
         ContentItem.put_mapping!
       end

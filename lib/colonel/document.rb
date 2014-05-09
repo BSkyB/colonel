@@ -12,6 +12,8 @@ module Colonel
   # Documents in all states except `master` can be rolled back to their previous revision (git reset), and
   # a revision history is available for each state separately.
   class Document
+    ROOT_REF = 'refs/tags/root'.freeze
+
     attr_reader :name, :revision
     attr_accessor :content
 
@@ -41,8 +43,35 @@ module Colonel
     #
     # Returns the sha of the created revision
     def save!(author, message = '', timestamp = Time.now)
-      parents = (repository.empty? ? [] : [repository.head.target_id].compact)
-      @revision = commit!(@content, parents, 'refs/heads/master', author, message, timestamp)
+      save_in!('master', author, message, timestamp)
+    end
+
+    # Public: save the document as a new revision. Commits the content to the top of `state`
+    # and updates the Document's revision to the newly created commit.
+    #
+    # WARNING: don't use this lightly.
+    #
+    # state     - the name of the state in which to save changes
+    # author    - a Hash containing author attributes
+    #             :name - the name of the author
+    #             :email - the email of the author
+    # message   - message for the commit (optional)
+    # timestamp - time of the save (optional), Defaults to Time.now
+    #
+    # Returns the sha of the created revision
+    def save_in!(state, author, message = '', timestamp = Time.now)
+      refs = "refs/heads/#{state}"
+      init_repository(repository, timestamp)
+
+      parents = [repository.references[refs].target_id].compact
+      @revision = commit!(@content, parents, refs, author, message, timestamp)
+    end
+
+
+    def init_repository(repository, timestamp = Time.now)
+      return unless repository.empty?
+      revision = commit!('', [], 'refs/heads/master', { name: 'The Colonel', email: 'colonel@example.com' }, 'First Commit', timestamp)
+      repository.references.create(ROOT_REF, revision)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -91,7 +120,7 @@ module Colonel
         results << { rev: commit.oid, message: commit.message, author: commit.author, time: commit.time }
         yield results.last if block_given?
 
-        break if commit.parents.length < 2 && state != 'master'
+        break if first_commit?(commit)
 
         commit = commit.parents.first
       end
@@ -119,9 +148,9 @@ module Colonel
       to_ref = repository.references["refs/heads/#{to}"]
 
       from_sha = from_ref.target_id
-      to_sha = to_ref.target_id if to_ref
+      to_sha = to_ref ? to_ref.target_id : root_commit_oid
 
-      commit!(@content, [to_sha, from_sha].compact, "refs/heads/#{to}", author, message, timestamp)
+      commit!(@content, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable
@@ -216,18 +245,31 @@ module Colonel
     # Internal: Checks whether a `start` commit has an ancestor passing the test specified by
     # the block. Stops after a commit with a single parent is tested, to avoid switching branches
     #
-    # start   - Rugged commit object to start with
-    # update  - the update message to send to the commit parrents to get the next one in line
-    # block   - the test. Gets a commit object
+    # start          - Rugged commit object to start with
+    # update         - the update message to send to the commit parrents to get the next one in line
+    # block          - the test. Gets a commit object
     def has_ancestor?(start, update, &block)
       while start
         return true if yield(start)
-        break if start.parents.length < 2
+
+        break if update == :last && on_master?(start)
 
         start = start.parents.send(update)
       end
 
       return false
+    end
+
+    def root_commit_oid
+      @root_commit_oid ||= repository.references[ROOT_REF].target_id
+    end
+
+    def first_commit?(commit)
+      commit.parents.map(&:oid).include?(root_commit_oid)
+    end
+
+    def on_master?(commit)
+      commit.parents.length < 2
     end
 
     # Internal: Commit contents of the document with a given parent commits, reference to update
@@ -243,7 +285,7 @@ module Colonel
     #
     # Returns the sha of the new commit
     def commit!(content, parents, ref, author, message = '', timestamp = Time.Now)
-      oid = repository.write(@content, :blob)
+      oid = repository.write(content, :blob)
 
       index = Rugged::Index.new
       index.add(path: 'content', oid: oid, mode: 0100644)
