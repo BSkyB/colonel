@@ -46,7 +46,43 @@ module Colonel
       #
       # returns a document instance
       def load(stream)
+        header = stream.readline
+        match = header.match(/^document:\s*(.+)$/)
+        raise RuntimeError, "Malformed document header" if match[1].empty?
 
+        document = Document.new(match[1])
+        repo = document.repository
+
+        raise RuntimeError, "Malformed document header" unless stream.readline =~ /^references:$/
+
+        line = stream.readline
+        until(line =~ /^objects:$/)
+          ref = load_hash(line) rescue raise(RuntimeError, "expected reference, found: #{line}")
+
+          if repo.references[ref['name']]
+            repo.references.update(ref["name"], ref["target"])
+          else
+            repo.references.create(ref["name"], ref["target"])
+          end
+
+          line = stream.readline
+        end
+
+        # read the rest of the stream
+        while(line = stream.readline)
+          obj = load_hash(line) rescue raise(RuntimeError, "expected object, found: #{line}")
+          data = Base64.strict_decode64(obj['data'])
+
+          raise RuntimeError, "Data length mismatch! dump: #{obj["len"]}, actuall: #{data.bytesize}" unless data.bytesize == obj['len']
+
+          oid = repo.write(data, obj['type'].to_sym)
+          raise RuntimeError, "oid mismatch! read: #{obj["oid"]}, got: #{oid}" unless oid == obj['oid']
+
+          break if stream.eof?
+        end
+
+        document.load!
+        document
       end
 
       private
@@ -65,7 +101,7 @@ module Colonel
 
       def write_object(stream, id, object)
         raw = object.read_raw
-        hash = {oid: raw.oid, type: raw.type, data: Base64.encode64(raw.data), len: raw.len}
+        hash = {oid: raw.oid, type: raw.type, data: Base64.strict_encode64(raw.data).strip, len: raw.len}
 
         stream.write(serialize_hash(hash))
         stream.write("\n")
@@ -73,6 +109,10 @@ module Colonel
 
       def serialize_hash(hash)
         JSON.generate(hash)
+      end
+
+      def load_hash(string)
+        JSON.parse(string)
       end
     end
   end
