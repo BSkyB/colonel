@@ -58,7 +58,11 @@ module Colonel
           when /^document:\s*(.+)$/
             reading = :header
 
-            yield finalize_document(document) if document
+            if document
+              finalize_document(document)
+              yield if block_given?
+            end
+
             raise RuntimeError, "Malformed document header" if $~[1].empty?
 
             document = Document.new($~[1])
@@ -81,7 +85,11 @@ module Colonel
           end
 
           if stream.eof?
-            yield finalize_document(document) if reading == :ref
+            if reading == :ref
+              doc = finalize_document(document)
+              yield if block_given?
+            end
+
             break
           end
         end
