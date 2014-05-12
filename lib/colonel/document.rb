@@ -65,6 +65,10 @@ module Colonel
 
       parents = [repository.references[refs].target_id].compact
       @revision = commit!(@content, parents, refs, author, message, timestamp)
+
+      index.register(name)
+
+      @revision
     end
 
 
@@ -211,6 +215,11 @@ module Colonel
       else
         @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare)
       end
+    end
+
+    # Internal: Document index to register the document with when saving to keep track of it
+    def index
+      @index ||= DocumentIndex.new(Colonel.config.storage_path)
     end
 
     # Class methods

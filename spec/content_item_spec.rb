@@ -1,6 +1,10 @@
 require 'spec_helper'
 
 describe ContentItem do
+  before :all do
+    Colonel.config.index_name = 'colonel-content-index'
+  end
+
   before :each do
     allow(ContentItem).to receive(:setup_search!)
   end
@@ -180,8 +184,8 @@ describe ContentItem do
       it "should create index if it doesn't exist" do
         allow(client).to receive(:indices).and_return(indices)
 
-        expect(indices).to receive(:exists).with(index: 'colonel-content').and_return(false)
-        expect(indices).to receive(:create).with(index: 'colonel-content', body: {
+        expect(indices).to receive(:exists).with(index: 'colonel-content-index').and_return(false)
+        expect(indices).to receive(:create).with(index: 'colonel-content-index', body: {
           mappings: {
             'content_item' => ContentItem.item_mapping,
             'content_item_latest' => ContentItem.item_mapping,
@@ -195,7 +199,7 @@ describe ContentItem do
       it "should not create index if it exists" do
         allow(client).to receive(:indices).and_return(indices)
 
-        expect(indices).to receive(:exists).with(index: 'colonel-content').and_return(true)
+        expect(indices).to receive(:exists).with(index: 'colonel-content-index').and_return(true)
         expect(indices).not_to receive(:create)
 
         ContentItem.send :ensure_index!
@@ -265,9 +269,9 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -277,9 +281,9 @@ describe ContentItem do
         expect(ci.document).to receive(:save_in!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.save!({ name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
       end
@@ -289,9 +293,9 @@ describe ContentItem do
         expect(ci.document).to receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
 
         expect(ci.promote!('master', 'preview', { email: 'colonel@example.com', name: 'The Colonel' }, 'foo', time)).to eq('xyz1')
       end
@@ -312,9 +316,9 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -331,9 +335,9 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
 
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:delete).with(index: 'colonel-content', type: 'content_item_rev', id: "#{ci.id}-rev2")
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
+        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
+        expect(client).to receive(:delete).with(index: 'colonel-content-index', type: 'content_item_rev', id: "#{ci.id}-rev2")
 
         ci.rollback_index!('preview')
       end
@@ -355,7 +359,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list
       end
@@ -371,7 +375,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(state: 'preview')
       end
@@ -390,7 +394,7 @@ describe ContentItem do
           ]
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: query).and_return(results)
 
         ContentItem.list(sort: {updated_at: 'desc'})
       end
@@ -407,8 +411,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: query).and_return(results)
-
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: query).and_return(results)
         ContentItem.list(from: 40, size: 20)
       end
 
@@ -421,7 +424,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query")
       end
 
@@ -434,7 +437,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search(query: { match: {id: 'abcdef'} })
       end
 
@@ -450,7 +453,7 @@ describe ContentItem do
           ]
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", sort: {updated_at: :desc})
       end
 
@@ -464,7 +467,7 @@ describe ContentItem do
           from: 40, size: 20
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", from: 40, size: 20)
       end
 
@@ -482,7 +485,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query", history: true)
       end
 
@@ -508,7 +511,7 @@ describe ContentItem do
           }
         }
 
-        expect(client).to receive(:search).with(index: 'colonel-content', type: 'content_item', body: body).and_return(results)
+        expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         expect(ContentItem).to receive(:open).with("abc", "def")
 
         ContentItem.search("query")
@@ -592,8 +595,8 @@ describe ContentItem do
 
         allow(client).to receive(:indices).and_return(indices)
 
-        expect(indices).to receive(:put_mapping).with(index: 'colonel-content', type: 'content_item', body: body)
-        expect(indices).to receive(:put_mapping).with(index: 'colonel-content', type: 'content_item_rev', body: rev_body)
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item', body: body)
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_rev', body: rev_body)
 
         ContentItem.put_mapping!
       end
