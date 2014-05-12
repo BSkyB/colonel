@@ -10,79 +10,81 @@ module Colonel
       #
       # document - a Document instance
       # ostream  - an instance of IO to write to
-      def generate(document, ostream)
-        ostream.write "document: #{document.name}\n"
-        ostream.write "references:\n"
-        ostream.write serialize_hash({name: "HEAD", type: :symbolic, target: "refs/heads/master"})
-        ostream.write("\n")
+      def generate(documents, ostream)
+        documents = [documents] unless documents.respond_to?(:each)
+        documents.each do |document|
+          ostream.write "document: #{document.name}\n"
+          ostream.write "objects:\n"
 
-        repo = document.repository
+          repo = document.repository
 
-        repo.references.each do |ref|
-          ostream.write(serialize_hash({name: ref.name, type: :oid, target: ref.target_id}))
+          root_oid = repo.references["refs/tags/root"].target_id
+          write_commit(ostream, repo, root_oid, repo.lookup(root_oid))
+
+          repo.references.each do |ref|
+            oid = ref.target_id
+            while(oid && oid != root_oid)
+              commit = repo.lookup(oid)
+              write_commit(ostream, repo, oid, commit)
+
+              break if commit.parent_ids.empty?
+              oid = commit.parent_ids.first # walk down only
+            end
+          end
+
+          ostream.write "references:\n"
+          ostream.write serialize_hash({name: "HEAD", type: :symbolic, target: "refs/heads/master"})
           ostream.write("\n")
-        end
 
-        ostream.write "objects:\n"
-
-        root_oid = repo.references["refs/tags/root"].target_id
-        write_commit(ostream, repo, root_oid, repo.lookup(root_oid))
-
-        repo.references.each do |ref|
-          oid = ref.target_id
-          while(oid && oid != root_oid)
-            commit = repo.lookup(oid)
-            write_commit(ostream, repo, oid, commit)
-
-            break if commit.parent_ids.empty?
-            oid = commit.parent_ids.first # walk down only
+          repo.references.each do |ref|
+            ostream.write(serialize_hash({name: ref.name, type: :oid, target: ref.target_id}))
+            ostream.write("\n")
           end
         end
       end
 
-      # Public: loads a document from a string produced by `generate`
+      # Public: loads a series of documents from a string produced by `generate`
       #
       # istream   - input stream to read from
       #
       # returns a document instance
-      def load(stream)
-        header = stream.readline
-        match = header.match(/^document:\s*(.+)$/)
-        raise RuntimeError, "Malformed document header" if match[1].empty?
+      def load(stream, &block)
+        document = nil
+        repo = nil
+        reading = :header
 
-        document = Document.new(match[1])
-        repo = document.repository
+        while(line = stream.readline) # or break in yield!
+          case line
+          when /^document:\s*(.+)$/
+            reading = :header
 
-        raise RuntimeError, "Malformed document header" unless stream.readline =~ /^references:$/
+            yield finalize_document(document) if document
+            raise RuntimeError, "Malformed document header" if $~[1].empty?
 
-        line = stream.readline
-        until(line =~ /^objects:$/)
-          ref = load_hash(line) rescue raise(RuntimeError, "expected reference, found: #{line}")
-
-          if repo.references[ref['name']]
-            repo.references.update(ref["name"], ref["target"])
+            document = Document.new($~[1])
+            repo = document.repository
+          when /^references:$/
+            raise RuntimeError, "Malformed document, unexpected references section" unless reading == :object
+            reading = :ref
+          when /^objects:$/
+            raise RuntimeError, "Malformed document, unexpected objects section" unless reading == :header
+            reading = :object
           else
-            repo.references.create(ref["name"], ref["target"])
+            case reading
+            when :ref
+              read_reference(repo, line)
+            when :object
+              read_object(repo, line)
+            else
+              raise RuntimeError, "Malformed input, expected document header, got #{line}"
+            end
           end
 
-          line = stream.readline
+          if stream.eof?
+            yield finalize_document(document) if reading == :ref
+            break
+          end
         end
-
-        # read the rest of the stream
-        while(line = stream.readline)
-          obj = load_hash(line) rescue raise(RuntimeError, "expected object, found: #{line}")
-          data = Base64.strict_decode64(obj['data'])
-
-          raise RuntimeError, "Data length mismatch! dump: #{obj["len"]}, actuall: #{data.bytesize}" unless data.bytesize == obj['len']
-
-          oid = repo.write(data, obj['type'].to_sym)
-          raise RuntimeError, "oid mismatch! read: #{obj["oid"]}, got: #{oid}" unless oid == obj['oid']
-
-          break if stream.eof?
-        end
-
-        document.load!
-        document
       end
 
       private
@@ -105,6 +107,33 @@ module Colonel
 
         stream.write(serialize_hash(hash))
         stream.write("\n")
+      end
+
+      def read_reference(repo, ref)
+        ref = load_hash(ref) rescue raise(RuntimeError, "expected reference, found: #{line}")
+
+        if repo.references[ref['name']]
+          repo.references.update(ref["name"], ref["target"])
+        else
+          repo.references.create(ref["name"], ref["target"])
+        end
+      end
+
+      def finalize_document(document)
+        document.load!
+        document.index.register(document.name)
+
+        document
+      end
+
+      def read_object(repo, obj)
+        obj = load_hash(obj) rescue raise(RuntimeError, "expected object, found: #{line}")
+        data = Base64.strict_decode64(obj['data'])
+
+        raise RuntimeError, "Data length mismatch! dump: #{obj["len"]}, actuall: #{data.bytesize}" unless data.bytesize == obj['len']
+
+        oid = repo.write(data, obj['type'].to_sym)
+        raise RuntimeError, "oid mismatch! read: #{obj["oid"]}, got: #{oid}" unless oid == obj['oid']
       end
 
       def serialize_hash(hash)

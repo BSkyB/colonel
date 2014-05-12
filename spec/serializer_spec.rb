@@ -8,10 +8,10 @@ describe Serializer do
       lines = dump.split("\n")
 
       expect(lines.first).to match_regex(/^document:\s*.+$/)
-      expect(lines[1]).to match_regex(/^references:$/)
+      expect(lines[1]).to match_regex(/^objects:$/)
 
       lines[2..-1].each do |line|
-        expect(line).to satisfy { |it| (it =~ /^objects:$/) || (is_valid_json?(it)) }
+        expect(line).to satisfy { |it| (it =~ /^references:$/) || (is_valid_json?(it)) }
       end
     end
 
@@ -138,9 +138,14 @@ describe Serializer do
       lines = dump.split("\n")
 
       expect(lines[0]).to eq("document: testdoc")
-      expect(lines[1]).to eq("references:")
+      expect(lines[1]).to eq("objects:")
 
-      head_ref = JSON.parse(lines[2])
+      i = 2
+      until(lines[i] == "references:" || lines[i].nil?)
+        i += 1
+      end
+
+      head_ref = JSON.parse(lines[i+1])
       expect(head_ref).to have_key("name")
       expect(head_ref["name"]).to eq("HEAD")
       expect(head_ref).to have_key("type")
@@ -148,7 +153,7 @@ describe Serializer do
       expect(head_ref).to have_key("target")
       expect(head_ref["target"]).to eq("refs/heads/master")
 
-      master_ref = JSON.parse(lines[3])
+      master_ref = JSON.parse(lines[i+2])
       expect(master_ref).to have_key("name")
       expect(master_ref["name"]).to eq("refs/heads/master")
       expect(master_ref).to have_key("type")
@@ -156,7 +161,7 @@ describe Serializer do
       expect(master_ref).to have_key("target")
       expect(master_ref["target"]).to eq("abcdef")
 
-      root_tag = JSON.parse(lines[4])
+      root_tag = JSON.parse(lines[i+3])
       expect(root_tag).to have_key("name")
       expect(root_tag["name"]).to eq("refs/tags/root")
       expect(root_tag).to have_key("type")
@@ -170,10 +175,6 @@ describe Serializer do
     let :dump do
       <<-EOF
 document: test-document
-references:
-{"name":"HEAD","type":"symbolic","target":"refs/heads/master"}
-{"name":"refs/heads/master","type":"oid","target":"top-commit"}
-{"name":"refs/tags/root","type":"oid","target":"root-commit"}
 objects:
 {"oid":"top-commit","type":"commit","data":"dGVzdGRhdGE=","len":8}
 {"oid":"top-tree","type":"tree","data":"dGVzdGRhdGE=","len":8}
@@ -181,6 +182,10 @@ objects:
 {"oid":"root-commit","type":"commit","data":"dGVzdGRhdGE=","len":8}
 {"oid":"root-tree","type":"tree","data":"dGVzdGRhdGE=","len":8}
 {"oid":"root-content","type":"blob","data":"dGVzdGRhdGE=","len":8}
+references:
+{"name":"HEAD","type":"symbolic","target":"refs/heads/master"}
+{"name":"refs/heads/master","type":"oid","target":"top-commit"}
+{"name":"refs/tags/root","type":"oid","target":"root-commit"}
 EOF
     end
 
@@ -200,14 +205,18 @@ EOF
     let :document do
       double(:document).tap do |it|
         allow(it).to receive(:repository).and_return(repo)
+        allow(it).to receive(:name).and_return("test-document")
+      end
+    end
+
+    let :index do
+      double(:index).tap do |it|
+        allow(it).to receive(:register)
       end
     end
 
     it "should load a simple document" do
       allow(Document).to receive(:new).with("test-document").and_return(document)
-
-      expect(refs).to receive(:create).once.ordered.with("refs/heads/master", "top-commit")
-      expect(refs).to receive(:create).once.ordered.with("refs/tags/root", "root-commit")
 
       # TODO make sure objects are loaded too
       expect(repo).to receive(:write).once.ordered.with("testdata", :commit).and_return("top-commit")
@@ -217,13 +226,20 @@ EOF
       expect(repo).to receive(:write).once.ordered.with("testdata", :tree).and_return("root-tree")
       expect(repo).to receive(:write).once.ordered.with("testdata", :blob).and_return("root-content")
 
+      expect(refs).to receive(:create).once.ordered.with("refs/heads/master", "top-commit")
+      expect(refs).to receive(:create).once.ordered.with("refs/tags/root", "root-commit")
+
       expect(document).to receive(:load!)
+      expect(document).to receive(:index).and_return(index)
 
       stream = StringIO.new
       stream.write(dump)
       stream.rewind
 
-      document = Serializer.load(stream)
+      documents = nil
+      Serializer.load(stream) do |doc|
+        document = doc
+      end
       expect(document).to eq(document)
     end
   end
