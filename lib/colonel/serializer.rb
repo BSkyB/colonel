@@ -8,13 +8,13 @@ module Colonel
 
       # Public: serializes a document with full history and writes to a stream
       #
-      # document - a Document instance
+      # documents - an array of Document instances
       # ostream  - an instance of IO to write to
       def generate(documents, ostream)
         documents = [documents] unless documents.respond_to?(:each)
         documents.each do |document|
-          ostream.write "document: #{document.name}\n"
-          ostream.write "objects:\n"
+          ostream.puts "document: #{document.name}"
+          ostream.puts "objects:"
 
           repo = document.repository
 
@@ -32,13 +32,11 @@ module Colonel
             end
           end
 
-          ostream.write "references:\n"
-          ostream.write serialize_hash({name: "HEAD", type: :symbolic, target: "refs/heads/master"})
-          ostream.write("\n")
+          ostream.puts "references:"
+          ostream.puts serialize_hash({name: "HEAD", type: :symbolic, target: "refs/heads/master"})
 
           repo.references.each do |ref|
-            ostream.write(serialize_hash({name: ref.name, type: :oid, target: ref.target_id}))
-            ostream.write("\n")
+            ostream.puts(serialize_hash({name: ref.name, type: :oid, target: ref.target_id}))
           end
         end
       end
@@ -49,6 +47,11 @@ module Colonel
       #
       # returns a document instance
       def load(stream, &block)
+        # FIXME improve this method, it has a multitude of small issues...
+        # - empty file will cause a crash
+        # - change RuntimeError into a more specific exception type
+        # - name $~ for clearer code
+
         document = nil
         repo = nil
         reading = :header
@@ -60,7 +63,7 @@ module Colonel
 
             if document
               finalize_document(document)
-              yield if block_given?
+              yield document if block_given?
             end
 
             raise RuntimeError, "Malformed document header" if $~[1].empty?
@@ -87,7 +90,7 @@ module Colonel
           if stream.eof?
             if reading == :ref
               doc = finalize_document(document)
-              yield if block_given?
+              yield doc if block_given?
             end
 
             break
@@ -113,8 +116,14 @@ module Colonel
         raw = object.read_raw
         hash = {oid: raw.oid, type: raw.type, data: Base64.strict_encode64(raw.data).strip, len: raw.len}
 
-        stream.write(serialize_hash(hash))
-        stream.write("\n")
+        stream.puts(serialize_hash(hash))
+      end
+
+      def finalize_document(document)
+        document.load!
+        document.index.register(document.name)
+
+        document
       end
 
       def read_reference(repo, ref)
@@ -125,13 +134,6 @@ module Colonel
         else
           repo.references.create(ref["name"], ref["target"])
         end
-      end
-
-      def finalize_document(document)
-        document.load!
-        document.index.register(document.name)
-
-        document
       end
 
       def read_object(repo, obj)
