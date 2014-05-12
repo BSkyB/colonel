@@ -20,7 +20,7 @@ module Colonel
     #
     # returns an array of document names as strings
     def documents
-      @documents if @documents
+      return @documents if @documents
 
       begin
         rev = repository.head.target_id
