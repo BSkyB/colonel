@@ -38,10 +38,11 @@ module Colonel
       # FIXME - this check is potentially sloooow. We may need a Hash or a trie-like datastructure
       return true if documents.include?(document_name)
 
-      docs = (documents + [document_name]).join("\n")
-      oid = repository.write(docs, :blob)
+      documents << document_name
+      oid = repository.write(documents.join("\n"), :blob)
 
-      if ref = repository.references["refs/heads/master"]
+      ref = repository.references["refs/heads/master"]
+      if ref
         repository.references.update(ref, oid)
       else
         repository.references.create("refs/heads/master", oid)
