@@ -9,7 +9,7 @@ GIT
 PATH
   remote: .
   specs:
-    colonel (0.2.0)
+    colonel (0.3.0)
       elasticsearch (~> 1.0.0)
 
 GEM
