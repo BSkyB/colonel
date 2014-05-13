@@ -116,13 +116,14 @@ module Colonel
       return results unless rev
 
       commit = repository.lookup(rev)
+
       while(commit)
         results << {
           rev: commit.oid,
           message: commit.message,
           author: commit.author,
           time: commit.time,
-          promotion: commit.parents.count == 2
+          type: [:orphan, :save, :promotion][commit.parents.count]
         }
         yield results.last if block_given?
 
