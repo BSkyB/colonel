@@ -176,6 +176,27 @@ describe ContentItem do
       allow(ContentItem).to receive(:es_client).and_return(client)
     end
 
+    describe "returned result" do
+      let(:returned_result) { ContentItem.search('*') }
+      let(:es_result) do
+        { "hits" => {
+          "hits" => [],
+          "total" => 0
+        },
+          "facets" => { }
+        }
+      end
+
+      before(:each) do
+        allow(ContentItem.es_client).to receive(:search).and_return(es_result)
+      end
+
+      it 'includes facets' do
+        expect(returned_result).to have_key(:facets)
+        expect(returned_result).to have_key(:hits)
+      end
+    end
+
     describe "suppport" do
       let :indices do
         Object.new
