@@ -407,8 +407,8 @@ module Colonel
 
       # Internal: Walk through elasticsearch hits and turn them into ContentItem instances
       def hydrate_hits(hits)
-        hits = hits["hits"]
         facets = hits["facets"]
+        hits = hits["hits"]
 
         hits["hits"]= hits["hits"].map do |hit|
           open(hit["_source"]["id"], hit["_source"]["revision"])
