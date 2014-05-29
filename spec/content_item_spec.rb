@@ -582,6 +582,29 @@ describe ContentItem do
           }
         }
 
+        latest_body = {
+          'content_item_latest' => {
+            properties: {
+              # _id is "{id}-{state}"
+              id: {
+                type: 'string',
+                index: 'not_analyzed'
+              },
+              state: {
+                type: 'string',
+                index: 'not_analyzed'
+              },
+              updated_at: {
+                type: 'date'
+              },
+              tags: {
+                type: 'string',
+                index: 'not_analyzed'
+              }
+            }
+          }
+        }
+
         rev_body = {
           'content_item_rev' => {
             _source: { enabled: false }, # you only get what you store
@@ -616,7 +639,7 @@ describe ContentItem do
 
         allow(client).to receive(:indices).and_return(indices)
 
-        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_latest', body: body)
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_latest', body: latest_body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item', body: body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_rev', body: rev_body)
 
