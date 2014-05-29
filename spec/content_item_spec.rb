@@ -616,6 +616,7 @@ describe ContentItem do
 
         allow(client).to receive(:indices).and_return(indices)
 
+        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_latest', body: body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item', body: body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_rev', body: rev_body)
 
