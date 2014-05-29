@@ -399,6 +399,7 @@ module Colonel
           revision_type_name=> revision_mapping
         }
 
+        es_client.indices.put_mapping index: index_name, type: latest_type_name, body: item_body
         es_client.indices.put_mapping index: index_name, type: item_type_name, body: item_body
         es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
       end
