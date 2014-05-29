@@ -9,7 +9,7 @@ GIT
 PATH
   remote: .
   specs:
-    colonel (0.3.2)
+    colonel (0.3.3)
       elasticsearch (~> 1.0.0)
 
 GEM
@@ -24,12 +24,12 @@ GEM
     coderay (1.1.0)
     diff-lcs (1.2.5)
     docile (1.1.3)
-    elasticsearch (1.0.2)
-      elasticsearch-api (= 1.0.2)
-      elasticsearch-transport (= 1.0.2)
-    elasticsearch-api (1.0.2)
+    elasticsearch (1.0.1)
+      elasticsearch-api (= 1.0.1)
+      elasticsearch-transport (= 1.0.1)
+    elasticsearch-api (1.0.1)
       multi_json
-    elasticsearch-transport (1.0.2)
+    elasticsearch-transport (1.0.1)
       faraday
       multi_json
     faraday (0.9.0)
