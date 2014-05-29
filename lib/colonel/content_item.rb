@@ -394,12 +394,14 @@ module Colonel
         item_body = {
           item_type_name => item_mapping
         }
-
+        latest_item_body = {
+          latest_type_name => item_mapping
+        }
         revision_body = {
           revision_type_name=> revision_mapping
         }
 
-        es_client.indices.put_mapping index: index_name, type: latest_type_name, body: item_body
+        es_client.indices.put_mapping index: index_name, type: latest_type_name, body: latest_item_body
         es_client.indices.put_mapping index: index_name, type: item_type_name, body: item_body
         es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
       end
