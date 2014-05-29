@@ -52,10 +52,6 @@ module Colonel
       end
     end
 
-    def as_json(*args)
-      plain
-    end
-
     def to_json(state = nil)
       JSON.generate(@list || @table)
     end

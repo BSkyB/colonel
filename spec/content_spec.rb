@@ -80,13 +80,6 @@ describe Content do
   end
 
   describe "serialization" do
-    it "should serialize as JSON" do
-      c = Content.new([{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}])
-      expected = [{:a=>'a', :b=>['stuff', {:doge=>'wow'}]}, 'foo', {:a=>['alien', 'shit']}]
-
-      expect(c.as_json).to eq(expected)
-    end
-
     it "should serialize to JSON" do
       c = Content.new([{a: 'a', b: ['stuff', {doge: 'wow'}]}, 'foo', {a: ['alien', 'shit']}])
       expected = '[{"a":"a","b":["stuff",{"doge":"wow"}]},"foo",{"a":["alien","shit"]}]'
