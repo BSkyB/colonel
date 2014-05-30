@@ -590,55 +590,5 @@ describe Document do
         expect(doc.has_been_promoted?('published', 'p2')).to be true
       end
     end
-
-    describe "rolling back" do
-      let :time do
-        Time.now
-      end
-
-      let :ref do
-        Struct.new(:target_id).new('xyz')
-      end
-
-      let :repo do
-        Struct.new(:references).new(Object.new)
-      end
-
-      let :preview_commit do
-        commit = Struct.new(:oid, :message, :author, :time, :parents)
-
-        d2 = commit.new('d2', 'x', 'x', time, [
-          commit.new('d1', 'x', 'x', time, [])
-        ])
-
-        commit.new('p2', 'x', 'x', time, [
-          commit.new('p1', 'x', 'x', time, [d2]),
-          commit.new('d4', 'x', 'x', time, [
-            commit.new('d3', 'x', 'x', time, [d2])
-          ])
-        ])
-      end
-
-      it "should find given branch head's left parent and update the ref to it" do
-        doc = Document.new('test-type', 'test', revision: 'foo', repo: repo)
-
-        allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
-        allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit)
-        expect(ref).to receive(:set_target).with('p1')
-
-        expect(doc.rollback!('preview')).to eq('p1')
-      end
-
-      it "should find given branch head's and remove it if it doesn't have a parent" do
-        doc = Document.new('test-type', 'test', revision: 'foo', repo: repo)
-
-        allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
-        allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit.parents[0])
-
-        expect(ref).to receive(:delete!)
-
-        expect(doc.rollback!('preview')).to be_nil
-      end
-    end
   end
 end

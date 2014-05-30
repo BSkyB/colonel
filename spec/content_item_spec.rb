@@ -130,7 +130,6 @@ describe ContentItem do
     let :con do
       ContentItem.new('test-type', nil).tap do |con|
         allow(con).to receive(:index!)
-        allow(con).to receive(:rollback_index!)
       end
     end
 
@@ -156,12 +155,6 @@ describe ContentItem do
       expect(con.document).to receive(:has_been_promoted?).with('x', 'y').and_return('foo')
 
       expect(con.has_been_promoted?('x', 'y')).to eq('foo')
-    end
-
-    it "should delegate rollback!" do
-      expect(con.document).to receive(:rollback!).with('x').and_return('foo')
-
-      expect(con.rollback!('x')).to eq('foo')
     end
   end
 
@@ -312,19 +305,13 @@ describe ContentItem do
         expect(ci.document).to receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-preview", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-preview", data: body}}
+        ])
 
         expect(ci.promote!('master', 'preview', { email: 'colonel@example.com', name: 'The Colonel' }, 'foo', time)).to eq('xyz1')
-      end
-
-      it "shoud index the document when rolled back" do
-        ci = ContentItem.new('test-type', body: "foobar")
-        expect(ci.document).to receive(:rollback!).and_return('rev1')
-        expect(ci).to receive(:rollback_index!).with('preview').and_return('rev1')
-
-        expect(ci.rollback!('preview')).to eq('rev1')
       end
 
       it "should index a complex the document" do
@@ -340,25 +327,6 @@ describe ContentItem do
         expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
-      end
-
-      it "should rollback an indexed document" do
-        ci = ContentItem.new('test-type', body: 'foobar')
-
-        expect(ci).to receive(:clone).and_return(ci)
-
-        expect(ci).to receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
-
-        expect(ci).to receive(:load!).with('rev1')
-        expect(ci.document).to receive(:content).and_return({body: 'old content'}.to_json)
-
-        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
-
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:delete).with(index: 'colonel-content-index', type: 'content_item_rev', id: "#{ci.id}-rev2")
-
-        ci.rollback_index!('preview')
       end
     end
 
