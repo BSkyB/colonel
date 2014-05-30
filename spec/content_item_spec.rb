@@ -281,9 +281,11 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
-        expect(client).to receive(:index).once.ordered.with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).once.ordered.with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).once.ordered.with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
+        ])
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -293,9 +295,11 @@ describe ContentItem do
         expect(ci.document).to receive(:save_in!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-master", data: body}}
+        ])
 
         expect(ci.save!("test-item", { name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
       end
@@ -322,9 +326,11 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
+        ])
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end

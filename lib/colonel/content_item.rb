@@ -111,31 +111,8 @@ module Colonel
     #
     # Returns nothing
     def index!(opts = {})
-      state = opts[:state] || 'master'
-      updated_at = opts[:updated_at]
-      sha = opts[:revision]
-
-      body = {
-        id: id,
-        revision: sha,
-        state: state,
-        updated_at: updated_at.iso8601
-      }
-
-      body = body.merge(@content.plain)
-
-      latest_id = "#{@id}"
-      item_id = "#{@id}-#{state}"
-      rev_id = "#{@id}-#{sha}"
-
-      # Index the latest document state for global searches
-      self.class.es_client.index(index: self.class.index_name, type: self.class.latest_type_name.to_s, id: latest_id, body: body)
-
-      # Index the document
-      self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
-
-      # Index the revision
-      self.class.es_client.index(index: self.class.index_name, type: self.class.revision_type_name.to_s, id: rev_id, parent: item_id, body: body)
+      commands = index_commands(opts)
+      self.class.es_client.bulk body: commands
     end
 
     # Public: Load the content item and instantiate the content.
@@ -175,52 +152,6 @@ module Colonel
       document.has_been_promoted?(to, rev)
     end
 
-    # Public: Rolls back the document and updates the index accordingly. Delegates to `rollback_index!` and the document.
-    def rollback!(state)
-      rollback_index!(state)
-      document.rollback!(state)
-    end
-
-    # Public: Update the index for the rollback of a given state. I.e. remove the latest revision that's being rolled back
-    # and update the item's record to the previous revision's content.
-    #
-    # state - the state to rollback
-    def rollback_index!(state)
-      ci = self.clone
-
-      history = ci.history(state)
-      commit = history[0]
-      parent = history[1]
-
-      from_sha = commit[:rev]
-      to_sha = parent[:rev]
-      updated_at = parent[:time]
-
-      ci.load!(to_sha)
-
-      body = {
-        id: ci.id,
-        revision: to_sha,
-        state: state,
-        updated_at: updated_at.iso8601
-      }
-
-      latest_id = "#{ci.id}"
-      item_id = "#{ci.id}-#{state}"
-      rev_id = "#{ci.id}-#{from_sha}"
-
-      body = body.merge(Content.from_json(ci.document.content).plain)
-
-      # reindex the document
-      self.class.es_client.index(index: self.class.index_name, type: self.class.latest_type_name, id: latest_id, body: body)
-      self.class.es_client.index(index: self.class.index_name, type: self.class.item_type_name.to_s, id: item_id, body: body)
-
-      # delete the old revision
-      self.class.es_client.delete(index: self.class.index_name, type: self.class.revision_type_name.to_s, id: rev_id)
-
-      to_sha
-    end
-
     # Surfacing content
 
     # Public: Array like content reader
@@ -231,6 +162,32 @@ module Colonel
     # Public: Array like content writer
     def []=(i, val)
       @content[i] = value
+    end
+
+    # Internal: build the index commands for `index!` without running them against es_client
+    def index_commands(opts = {})
+      state = opts[:state] || 'master'
+      updated_at = opts[:updated_at]
+      sha = opts[:revision]
+
+      body = {
+        id: id,
+        revision: sha,
+        state: state,
+        updated_at: updated_at.iso8601
+      }
+
+      body = body.merge(@content.plain)
+
+      latest_id = "#{@id}"
+      item_id = "#{@id}-#{state}"
+      rev_id = "#{@id}-#{sha}"
+
+      [
+        {index: {_index: self.class.index_name, _type: self.class.latest_type_name.to_s, _id: latest_id, data: body}},
+        {index: {_index: self.class.index_name, _type: self.class.item_type_name.to_s, _id: item_id, data: body}},
+        {index: {_index: self.class.index_name, _type: self.class.revision_type_name.to_s, _id: rev_id, _parent: item_id, data: body}}
+      ]
     end
 
     # Internal: Forward relevant methods to the content to allow more natural API
