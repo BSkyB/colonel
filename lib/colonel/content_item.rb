@@ -35,19 +35,20 @@ module Colonel
 
     # Public: create a new content item
     #
+    # type    - string, name of the type (colonel lets you specify it rather than use the class name)
     # content - the item content - a Hash or an Array instance, the content of which will be accessible
     #           on the content item.
     #
     # Examples
     #
-    #   item = ContentItem.new(name: {first: 'John', last: 'Doe'}, tags: ['Staff', 'Management'])
+    #   item = ContentItem.new('my-item', name: {first: 'John', last: 'Doe'}, tags: ['Staff', 'Management'])
     #   item.name.first
     #   # => 'John'
     #
     #   item.tags[1]
     #   # => 'Management'
-    def initialize(content, opts = {})
-      @document = opts[:document] || Document.new
+    def initialize(type, content, opts = {})
+      @document = opts[:document] || Document.new(type)
       @content = if @document.content && !@document.content.empty?
         Content.from_json(@document.content)
       else
@@ -249,7 +250,7 @@ module Colonel
         doc = Document.open(id, rev)
         return nil unless doc
 
-        new(nil, document: doc)
+        new(doc.type, nil, document: doc)
       end
 
       # Public: List all the content items. Supports filtering by state, sorting and pagination.

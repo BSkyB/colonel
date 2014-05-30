@@ -7,7 +7,7 @@ describe Serializer do
       expect(dump).to be_a(String)
       lines = dump.split("\n")
 
-      expect(lines.first).to match_regex(/^document:\s*.+$/)
+      expect(lines.first).to match_regex(/^document:\s*(\S+)\s+(.+)$/)
       expect(lines[1]).to match_regex(/^objects:$/)
 
       lines[2..-1].each do |line|
@@ -29,6 +29,7 @@ describe Serializer do
       double(:document).tap do |doc|
         allow(doc).to receive(:repository).and_return(repository)
         allow(doc).to receive(:name).and_return("testdoc")
+        allow(doc).to receive(:type).and_return("test-type")
       end
     end
 
@@ -137,7 +138,7 @@ describe Serializer do
 
       lines = dump.split("\n")
 
-      expect(lines[0]).to eq("document: testdoc")
+      expect(lines[0]).to eq("document: testdoc test-type")
       expect(lines[1]).to eq("objects:")
 
       i = 2
@@ -174,7 +175,7 @@ describe Serializer do
   describe "reading" do
     let :dump do
       <<-EOF
-document: test-document
+document: test-document test-type
 objects:
 {"oid":"top-commit","type":"commit","data":"dGVzdGRhdGE=","len":8}
 {"oid":"top-tree","type":"tree","data":"dGVzdGRhdGE=","len":8}

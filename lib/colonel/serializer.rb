@@ -13,7 +13,7 @@ module Colonel
       def generate(documents, ostream)
         documents = [documents] unless documents.respond_to?(:each)
         documents.each do |document|
-          ostream.puts "document: #{document.name}"
+          ostream.puts "document: #{document.name} #{document.type}"
           ostream.puts "objects:"
 
           repo = document.repository
@@ -53,22 +53,26 @@ module Colonel
         # - name $~ for clearer code
 
         document = nil
+        type = nil
         repo = nil
         reading = :header
 
         while(line = stream.readline) # or break in yield!
           case line
-          when /^document:\s*(.+)$/
+          when /^document:\s*(\S+)\s+(.+)$/
             reading = :header
 
             if document
-              finalize_document(document)
+              finalize_document(document, type)
               yield document if block_given?
             end
 
-            raise RuntimeError, "Malformed document header" if $~[1].empty?
+            name = $~[1]
+            type = $~[2]
 
-            document = Document.new($~[1])
+            raise RuntimeError, "Malformed document header" if name.empty? || type.empty?
+
+            document = Document.new(name)
             repo = document.repository
           when /^references:$/
             raise RuntimeError, "Malformed document, unexpected references section" unless reading == :object
@@ -89,7 +93,7 @@ module Colonel
 
           if stream.eof?
             if reading == :ref
-              doc = finalize_document(document)
+              doc = finalize_document(document, type)
               yield doc if block_given?
             end
 
@@ -119,9 +123,9 @@ module Colonel
         stream.puts(serialize_hash(hash))
       end
 
-      def finalize_document(document)
+      def finalize_document(document, type)
         document.load!
-        document.index.register(document.name)
+        document.index.register(document.name, type)
 
         document
       end

@@ -34,7 +34,7 @@ describe "Stress test", live: true do
         body: CONTENT.sample(4).flatten.join("\n\n")
       }
 
-      doc = ContentItem.new(info)
+      doc = ContentItem.new("test-item", info)
       doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
 
       expect(doc.history('master').length).to eq(1)
@@ -124,6 +124,6 @@ describe "Stress test", live: true do
     end
 
     expect(index.documents.length).to eq(100)
-    expect(index.documents.sort).to eq(doc_ids.sort)
+    expect(index.documents.map{|d| d[:name] }.sort).to eq(doc_ids.sort)
   end
 end

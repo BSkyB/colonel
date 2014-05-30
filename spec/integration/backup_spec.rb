@@ -5,10 +5,6 @@ require 'fileutils'
 require 'support/sample_content'
 
 describe "Stress test", live: true do
-  let :index do
-    DocumentIndex.new('tmp/integration_test')
-  end
-
   before do
     Colonel.config.storage_path = 'tmp/integration_test'
 
@@ -31,7 +27,7 @@ describe "Stress test", live: true do
         body: CONTENT.sample(4).flatten.join("\n\n")
       }
 
-      doc = ContentItem.new(info)
+      doc = ContentItem.new("test-item", info)
       doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
       doc_ids << doc.id
 
@@ -55,7 +51,9 @@ describe "Stress test", live: true do
 
     dump = StringIO.new
 
-    docs = index.documents.map { |doc| Document.open(doc) }
+    index = DocumentIndex.new('tmp/integration_test')
+
+    docs = index.documents.map { |doc| Document.open(doc[:name]) }
     Serializer.generate(docs, dump)
 
     FileUtils.rm_rf('tmp/integration_test')
@@ -67,6 +65,6 @@ describe "Stress test", live: true do
     end
 
     expect(index.documents.length).to eq(20)
-    expect(index.documents.sort).to eq(doc_ids.sort)
+    expect(index.documents.map { |d| d[:name] }.sort).to eq(doc_ids.sort)
   end
 end

@@ -29,17 +29,19 @@ module Colonel
       end
 
       file = repository.lookup(rev).read_raw.data
-      @documents = file.split("\n")
+      @documents = file.split("\n").map do |d|
+        parts = d.split(/\s+/)
+        {name: parts[0].strip, type: (parts[1] || "").strip }
+      end
     end
 
     # Public: Idempotently register a document. If the document isn't yet known, it will be added to the
     # index.
-    def register(document_name)
-      # FIXME - this check is potentially sloooow. We may need a Hash or a trie-like datastructure
-      return true if documents.include?(document_name)
+    def register(document_name, document_type)
+      return true if include?(document_name)
 
-      documents << document_name
-      oid = repository.write(documents.join("\n"), :blob)
+      documents << {name: document_name, type: document_type}
+      oid = repository.write(documents.map {|d| [d[:name], d[:type]].join(" ") }.join("\n"), :blob)
 
       ref = repository.references["refs/heads/master"]
       if ref
@@ -49,6 +51,21 @@ module Colonel
       end
 
       true
+    end
+
+    # Public: lookup a document in the index and return the details
+    #
+    # return a hash with :name and :type keys
+    def lookup(document_name)
+      # FIXME - this check is potentially sloooow. We may need a Hash or a trie-like datastructure
+      documents.detect {|d| d[:name] == document_name }
+    end
+
+    # Public: is document of a given name in the index?
+    #
+    # returns true if the document is found false otherwise
+    def include?(document_name)
+      documents.any? {|d| d[:name] == document_name }
     end
 
     # Internal: repository for the index

@@ -24,21 +24,21 @@ describe Document do
     end
 
     it "should create a document" do
-      expect(Document.new).to be_a Document
+      expect(Document.new('test-type')).to be_a Document
     end
 
     it "should have a random name" do
-      document = Document.new
+      document = Document.new('test-type')
       expect(document.name).to match /^[0-9a-f]{32}$/
     end
 
     it "should have a name if specified" do
-      document = Document.new 'test'
+      document = Document.new('test-type', 'test')
       expect(document.name).to eq 'test'
     end
 
     it "should have a content if specified" do
-      document = Document.new('test', content: 'my test content')
+      document = Document.new('test-type', 'test', content: 'my test content')
       expect(document.content).to eq 'my test content'
     end
   end
@@ -47,7 +47,7 @@ describe Document do
     it "should create a repository with the document's name when asked for repo" do
       expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare)
 
-      Document.new('test').repository
+      Document.new('test-type', 'test').repository
     end
   end
 
@@ -64,15 +64,22 @@ describe Document do
       Colonel.config.rugged_backend = nil
     end
 
+    let :index do
+      double(:index).tap do |index|
+        allow(index).to receive(:lookup).with("test").and_return({name: "test", type: "test-type"})
+      end
+    end
+
     it "should init with a given backend" do
       expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare, backend: :foo)
 
-      Document.new('test').repository
+      Document.new('test-type', 'test').repository
     end
 
     it "should open with a given backend" do
       allow(Document).to receive(:new).and_return(doc)
       allow(doc).to receive(:load!)
+      allow(Document).to receive(:index).and_return(index)
 
       expect(Rugged::Repository).to receive(:bare).with("storage/test", backend: :foo)
 
@@ -104,7 +111,7 @@ describe Document do
     end
 
     let :document do
-      Document.new "test", content: "some content"
+      Document.new 'test-type', "test", content: "some content"
     end
 
     let :time do
@@ -113,7 +120,7 @@ describe Document do
 
     let :mock_index do
       index = Object.new
-      allow(index).to receive(:register).with(document.name).and_return(true)
+      allow(index).to receive(:register).with(document.name, document.type).and_return(true)
 
       index
     end
@@ -227,7 +234,7 @@ describe Document do
     end
 
     let :document do
-      Document.new "test", content: "some content"
+      Document.new 'test-type', "test", content: "some content"
     end
 
     let :time do
@@ -236,7 +243,7 @@ describe Document do
 
     let :mock_index do
       index = Object.new
-      allow(index).to receive(:register).with(document.name).and_return(true)
+      allow(index).to receive(:register).with(document.name, document.type).and_return(true)
     end
 
     before do
@@ -266,7 +273,7 @@ describe Document do
 
       expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.index).to receive(:register).with(document.name).and_return(true)
+      expect(document.index).to receive(:register).with(document.name, document.type).and_return(true)
 
       allow(document).to receive(:init_repository).and_return(true)
 
@@ -296,8 +303,14 @@ describe Document do
       Object.new
     end
 
+    let :index do
+      double(:index).tap do |index|
+        allow(index).to receive(:lookup).with("test").and_return({type: "test-type", name: "test"})
+      end
+    end
+
     let :document do
-      Document.new('test', repo: repo)
+      Document.new('test-type', 'test', repo: repo)
     end
 
     it "should open the repository and get HEAD" do
@@ -309,6 +322,8 @@ describe Document do
       expect(repo).to receive(:lookup).with('12345').and_return(file)
       expect(file).to receive(:read_raw).and_return(robj)
       expect(robj).to receive(:data).and_return('foo')
+
+      allow(Document).to receive(:index).and_return(index)
 
       doc = Document.open("test")
       expect(doc).to be_a(Document)
@@ -397,7 +412,7 @@ describe Document do
     end
 
     it "should list past revisions" do
-      doc = Document.new('test', revision: 'abcdefg', repo: repo)
+      doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
 
       allow(repo.references).to receive(:[])
 
@@ -426,7 +441,7 @@ describe Document do
     end
 
     let :document do
-      Document.new "test", content: "some content", repo: repo
+      Document.new 'test-type', "test", content: "some content", repo: repo
     end
 
     let :ref1 do
@@ -545,7 +560,7 @@ describe Document do
       end
 
       it "should check whether a draft was promoted to preview" do
-        doc = Document.new('test', revision: 'abcdefg', repo: repo)
+        doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
         allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
@@ -559,7 +574,7 @@ describe Document do
       end
 
       it "should check whether a draft was promoted to published" do
-        doc = Document.new('test', revision: 'abcdefg', repo: repo)
+        doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
         allow(repo.references).to receive(:[]).with('refs/heads/published').and_return(ref)
@@ -605,7 +620,7 @@ describe Document do
       end
 
       it "should find given branch head's left parent and update the ref to it" do
-        doc = Document.new('test', revision: 'foo', repo: repo)
+        doc = Document.new('test-type', 'test', revision: 'foo', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
         allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit)
@@ -615,7 +630,7 @@ describe Document do
       end
 
       it "should find given branch head's and remove it if it doesn't have a parent" do
-        doc = Document.new('test', revision: 'foo', repo: repo)
+        doc = Document.new('test-type', 'test', revision: 'foo', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
         allow(repo).to receive(:lookup).with('xyz').and_return(preview_commit.parents[0])
