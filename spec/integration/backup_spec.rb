@@ -27,7 +27,7 @@ describe "Stress test", live: true do
         body: CONTENT.sample(4).flatten.join("\n\n")
       }
 
-      doc = ContentItem.new("test-item", info)
+      doc = ContentItem.new(info)
       doc.save!({name: "John Doe", email: "john@example.com"}, "Commit message")
       doc_ids << doc.id
 
