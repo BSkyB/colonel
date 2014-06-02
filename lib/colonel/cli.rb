@@ -19,7 +19,7 @@ module Colonel
     desc "restore", "Restore from a backup"
     method_option :input_file, type: :string, aliases: '-f'
     method_option :index_name, type: :string, aliases: '-i'
-    method_option :content_items, type: :array, aliases: '-c', required: true
+    method_option :content_items, type: :array, aliases: '-c'
     def restore
       load_dot_file!
 
@@ -29,7 +29,11 @@ module Colonel
         Serializer.load(STDIN)
       end
 
-      perform_indexing(options[:index_name], options[:content_items])
+      if options[:content_items]
+        perform_indexing(options[:index_name], options[:content_items])
+      else
+        warn "Not indexing the restored content, no content items specified. Use 'colonel index' if you forgot."
+      end
     end
 
     desc "index", "Index documents in document index into elasticsearch"
