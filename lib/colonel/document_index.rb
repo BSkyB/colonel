@@ -25,7 +25,7 @@ module Colonel
       begin
         rev = repository.head.target_id
       rescue Rugged::ReferenceError
-        return []
+        return @documents = []
       end
 
       file = repository.lookup(rev).read_raw.data

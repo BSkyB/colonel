@@ -72,7 +72,7 @@ module Colonel
 
             raise RuntimeError, "Malformed document header" if name.empty? || type.empty?
 
-            document = Document.new(name)
+            document = Document.new(type, name)
             repo = document.repository
           when /^references:$/
             raise RuntimeError, "Malformed document, unexpected references section" unless reading == :object
