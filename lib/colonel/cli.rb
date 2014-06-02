@@ -12,7 +12,7 @@ module Colonel
       load_dot_file!
 
       index = DocumentIndex.new(Colonel.config.storage_path)
-      docs = index.documents.map { |doc| Document.open(doc) }
+      docs = index.documents.map { |doc| Document.open(doc[:name]) }
       Serializer.generate(docs, STDOUT)
     end
 
@@ -26,6 +26,27 @@ module Colonel
       else
         Serializer.load(STDIN)
       end
+    end
+
+    desc "index", "Index documents in document index into elasticsearch"
+    method_option :index_name, type: :string, aliases: '-i'
+    method_option :content_items, type: :array, aliases: '-c', required: true
+    def index
+      load_dot_file!
+
+      Colonel.config.index_name = options[:input] if options[:input]
+
+      index = DocumentIndex.new(Colonel.config.storage_path)
+      docs = index.documents.map { |doc| Document.open(doc[:name]) }
+
+      mapping = options[:content_items].map do |klass|
+        klass = eval(klass)
+        type_name = klass.item_type_name
+
+        [type_name, klass]
+      end
+
+      Indexer.index(docs, Hash[mapping])
     end
   end
 end
