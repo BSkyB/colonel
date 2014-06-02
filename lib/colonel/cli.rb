@@ -17,15 +17,19 @@ module Colonel
     end
 
     desc "restore", "Restore from a backup"
-    method_option :input, type: :string, aliases: '-i'
+    method_option :input_file, type: :string, aliases: '-f'
+    method_option :index_name, type: :string, aliases: '-i'
+    method_option :content_items, type: :array, aliases: '-c', required: true
     def restore
       load_dot_file!
 
-      if options[:input]
+      if options[:input_file]
         raise ArgumentError, "File input not implemented yet, consider using '< file'"
       else
         Serializer.load(STDIN)
       end
+
+      perform_indexing(options[:index_name], options[:content_items])
     end
 
     desc "index", "Index documents in document index into elasticsearch"
@@ -34,12 +38,18 @@ module Colonel
     def index
       load_dot_file!
 
-      Colonel.config.index_name = options[:input] if options[:input]
+      perform_indexing(options[:index_name], options[:content_items])
+    end
+
+    private
+
+    def perform_indexing(index_name, content_items)
+      Colonel.config.index_name = index_name if index_name
 
       index = DocumentIndex.new(Colonel.config.storage_path)
       docs = index.documents.map { |doc| Document.open(doc[:name]) }
 
-      mapping = options[:content_items].map do |klass|
+      mapping = content_items.map do |klass|
         klass = eval(klass)
         type_name = klass.item_type_name
 
