@@ -217,7 +217,7 @@ EOF
     end
 
     it "should load a simple document" do
-      allow(Document).to receive(:new).with("test-document").and_return(document)
+      allow(Document).to receive(:new).with("test-type", "test-document").and_return(document)
 
       # TODO make sure objects are loaded too
       expect(repo).to receive(:write).once.ordered.with("testdata", :commit).and_return("top-commit")
