@@ -53,39 +53,45 @@ describe DocumentIndex do
       expect(repo).to receive(:head).and_return(head)
       expect(repo).to receive(:lookup).with('abcdef').and_return(object)
       expect(object).to receive(:read_raw).and_return(raw)
-      expect(raw).to receive(:data).and_return("one\ntwo\nthree")
+      expect(raw).to receive(:data).and_return("one TestType\ntwo TestType\nthree TestType")
 
-      expect(index.documents).to eq(['one', 'two', 'three'])
+      expect(index.documents).to eq([{name: "one", type: "TestType"}, {name: "two", type: "TestType"}, {name: "three", type: "TestType"}])
     end
 
     it "should register a document in an empty repo" do
-      allow(index).to receive(:documents).and_return(["one", "two", "three"])
-      expect(repo).to receive(:write).with("one\ntwo\nthree\nfour", :blob).and_return('aabbccdd')
+      allow(index).to receive(:documents).and_return([{name: "one", type: "TestType"}, {name: "two", type: "TestType"}, {name: "three", type: "TestType"}])
+      expect(repo).to receive(:write).with("one TestType\ntwo TestType\nthree TestType\nfour TestType", :blob).and_return('aabbccdd')
 
       expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(nil)
       expect(repo.references).to receive(:create).with('refs/heads/master', 'aabbccdd')
 
-      expect(index.register("four")).to eq(true)
+      expect(index.register("four", "TestType")).to eq(true)
     end
 
     it "should register a document in an non-empty repo" do
-      allow(index).to receive(:documents).and_return(["one", "two", "three"])
-      expect(repo).to receive(:write).with("one\ntwo\nthree\nfour", :blob).and_return('aabbccdd')
+      allow(index).to receive(:documents).and_return([{name: "one", type: "TestType"}, {name: "two", type: "TestType"}, {name: "three", type: "TestType"}])
+      expect(repo).to receive(:write).with("one TestType\ntwo TestType\nthree TestType\nfour TestType", :blob).and_return('aabbccdd')
 
       expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref)
       expect(repo.references).to receive(:update).with(ref, 'aabbccdd')
 
-      expect(index.register("four")).to eq(true)
+      expect(index.register("four", "TestType")).to eq(true)
+    end
+
+    it "should lookup documents" do
+      allow(index).to receive(:documents).and_return([{name: "one", type: "TestType"}, {name: "two", type: "TestType"}, {name: "three", type: "TestType"}, {name: "four", type: "TestType"}])
+
+      expect(index.lookup("one")).to eq({name: "one", type: "TestType"})
     end
 
     it "should not modify a repo with document already listed" do
-      allow(index).to receive(:documents).and_return(["one", "two", "three", "four"])
+      allow(index).to receive(:documents).and_return([{name: "one", type: "TestType"}, {name: "two", type: "TestType"}, {name: "three", type: "TestType"}, {name: "four", type: "TestType"}])
 
       expect(repo).not_to receive(:write)
       expect(repo.references).not_to receive(:[])
       expect(repo.references).not_to receive(:update)
 
-      expect(index.register("four")).to eq(true)
+      expect(index.register("four", "TestType")).to eq(true)
     end
   end
 end

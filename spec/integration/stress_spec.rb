@@ -124,6 +124,6 @@ describe "Stress test", live: true do
     end
 
     expect(index.documents.length).to eq(100)
-    expect(index.documents.sort).to eq(doc_ids.sort)
+    expect(index.documents.map{|d| d[:name] }.sort).to eq(doc_ids.sort)
   end
 end

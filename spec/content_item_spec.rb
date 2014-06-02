@@ -18,7 +18,7 @@ describe ContentItem do
 
   describe "creating" do
     it "should create item with content from hash" do
-      c = ContentItem.new(foo: 'foo', bar: 'bar')
+      c = ContentItem.new({foo: 'foo', bar: 'bar'})
 
       expect(c.foo).to eq('foo')
       expect(c.bar).to eq('bar')
@@ -32,14 +32,14 @@ describe ContentItem do
     end
 
     it "should get a document and surface the name as id" do
-      c = ContentItem.new(foo: 'foo', bar: 'bar')
+      c = ContentItem.new({foo: 'foo', bar: 'bar'})
 
       expect(c.document).to be_a(Document)
       expect(c.id).to eq(c.document.name)
     end
 
     it "should take a document in opts hash and deserialize it's content" do
-      doc = Document.new(nil, content: '{"foo": "bar", "a": ["a", 1]}')
+      doc = Document.new('test-type', nil, content: '{"foo": "bar", "a": ["a", 1]}')
       con = ContentItem.new(nil, document: doc)
 
       expect(con.foo).to eq('bar')
@@ -50,7 +50,7 @@ describe ContentItem do
 
   describe "updating" do
     it "should allow mass updating content" do
-      con = ContentItem.new(foo: 'foo', bar: 'bar', baz: 'baz')
+      con = ContentItem.new({foo: 'foo', bar: 'bar', baz: 'baz'})
 
       con.update(bar: 'xxx')
 
@@ -60,7 +60,7 @@ describe ContentItem do
     end
 
     it "should forward delete_field to content" do
-      con = ContentItem.new(foo: 'foo', bar: 'bar', baz: 'baz')
+      con = ContentItem.new({foo: 'foo', bar: 'bar', baz: 'baz'})
 
       con.delete_field(:foo)
 
@@ -80,15 +80,12 @@ describe ContentItem do
     end
 
     let :document do
-      Struct.new(:name, :content).new('axbcd', '{"foo":"bar"}')
-    end
-
-    before do
-      allow_any_instance_of(ContentItem).to receive(:index!)
+      Struct.new(:name, :content, :type).new('axbcd', '{"foo":"bar"}', 'test-type')
     end
 
     it "should serialize and save content without message" do
-      con = ContentItem.new(key: 'value', another: ['array'])
+      con = ContentItem.new({key: 'value', another: ['array']})
+      allow(con).to receive(:index!)
 
       expect(con.document).to receive(:content=).with('{"key":"value","another":["array"]}')
       expect(con.document).to receive(:save_in!).with('master', author, '', time).and_return('abcdef')
@@ -97,7 +94,8 @@ describe ContentItem do
     end
 
     it "should serialize and save content with message" do
-      con = ContentItem.new(key: 'value', another: ['array'])
+      con = ContentItem.new({key: 'value', another: ['array']})
+      allow(con).to receive(:index!)
 
       expect(con.document).to receive(:content=).with('{"key":"value","another":["array"]}')
       expect(con.document).to receive(:save_in!).with('master', author, 'save from the colonel', time).and_return('abcdef')
@@ -127,43 +125,36 @@ describe ContentItem do
 
   describe "document API" do
     before do
-      allow_any_instance_of(ContentItem).to receive(:index!)
-      allow_any_instance_of(ContentItem).to receive(:rollback_index!)
+    end
+
+    let :con do
+      ContentItem.new(nil).tap do |con|
+        allow(con).to receive(:index!)
+      end
     end
 
     it "should delegate revision" do
-      con = ContentItem.new(nil)
       expect(con.document).to receive(:revision).and_return('xyz')
 
       expect(con.revision).to eq('xyz')
     end
 
     it "should delegate history" do
-      con = ContentItem.new(nil)
       expect(con.document).to receive(:history).with('x').and_return('foo')
 
       expect(con.history('x')).to eq('foo')
     end
 
     it "should delegate promote!" do
-      con = ContentItem.new(nil)
       expect(con.document).to receive(:promote!).with('x', 'y', {}, 'z', 't').and_return('foo')
 
       expect(con.promote!('x', 'y', {}, 'z', 't')).to eq('foo')
     end
 
     it "should delegate has_been_promoted?" do
-      con = ContentItem.new(nil)
       expect(con.document).to receive(:has_been_promoted?).with('x', 'y').and_return('foo')
 
       expect(con.has_been_promoted?('x', 'y')).to eq('foo')
-    end
-
-    it "should delegate rollback!" do
-      con = ContentItem.new(nil)
-      expect(con.document).to receive(:rollback!).with('x').and_return('foo')
-
-      expect(con.rollback!('x')).to eq('foo')
     end
   end
 
@@ -290,9 +281,11 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
+        ])
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
       end
@@ -302,11 +295,13 @@ describe ContentItem do
         expect(ci.document).to receive(:save_in!).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-master", data: body}}
+        ])
 
-        expect(ci.save!({ name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
+        expect(ci.save!("test-item", { name: 'The Colonel', email: 'colonel@example.com' })).to eq('xyz1')
       end
 
       it "should index the document when promoted" do
@@ -314,19 +309,13 @@ describe ContentItem do
         expect(ci.document).to receive(:promote!).with('master', 'preview', author, 'foo', time).and_return('xyz1')
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-preview", id: "#{ci.id}-xyz1", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-preview", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-preview", data: body}}
+        ])
 
         expect(ci.promote!('master', 'preview', { email: 'colonel@example.com', name: 'The Colonel' }, 'foo', time)).to eq('xyz1')
-      end
-
-      it "shoud index the document when rolled back" do
-        ci = ContentItem.new(body: "foobar")
-        expect(ci.document).to receive(:rollback!).and_return('rev1')
-        expect(ci).to receive(:rollback_index!).with('preview').and_return('rev1')
-
-        expect(ci.rollback!('preview')).to eq('rev1')
       end
 
       it "should index a complex the document" do
@@ -337,30 +326,13 @@ describe ContentItem do
           title: "Title", tags: ["tag", "another", "one more"], body: "foobar", author: {first: "Viktor", last: "Charypar"}
         }
 
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-master", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_rev', parent: "#{ci.id}-master", id: "#{ci.id}-yzw", body: body)
+        expect(client).to receive(:bulk).with(body: [
+          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
+          {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
+        ])
 
         ci.index!(state: 'master', updated_at: time, revision: 'yzw')
-      end
-
-      it "should rollback an indexed document" do
-        ci = ContentItem.new(body: 'foobar')
-
-        expect(ci).to receive(:clone).and_return(ci)
-
-        expect(ci).to receive(:history).with('preview').and_return([{time: time + 100, rev: 'rev2'}, {time: time, rev: 'rev1'}])
-
-        expect(ci).to receive(:load!).with('rev1')
-        expect(ci.document).to receive(:content).and_return({body: 'old content'}.to_json)
-
-        body = { id: ci.id, revision: 'rev1', state: 'preview', updated_at: time.iso8601, body: "old content" }
-
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item_latest', id: "#{ci.id}", body: body)
-        expect(client).to receive(:index).with(index: 'colonel-content-index', type: 'content_item', id: "#{ci.id}-preview", body: body)
-        expect(client).to receive(:delete).with(index: 'colonel-content-index', type: 'content_item_rev', id: "#{ci.id}-rev2")
-
-        ci.rollback_index!('preview')
       end
     end
 

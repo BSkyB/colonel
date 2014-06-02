@@ -9,23 +9,29 @@ module Colonel
   #
   # A promotion to a following state is recorded as a merge commit from the original state baranch to
   # a new state branch. New state revision is therefore not the same revision as the original revision.
-  # Documents in all states except `master` can be rolled back to their previous revision (git reset), and
-  # a revision history is available for each state separately.
   class Document
     ROOT_REF = 'refs/tags/root'.freeze
 
-    attr_reader :name, :revision
+    attr_reader :name, :revision, :type
     attr_accessor :content
 
     # Public: create a new document
     #
-    # name    - the name of the document, must be a valid filename. Will be generated randomly if not provided
+    # type    - string type of the document
+    # name    - the name of the document, must be a valid filename. Will be generated randomly if not provided,
+    #           cannot contain whitespace.
     # options - an options Hash with extra attributes
     #           :content - the new document's content (optional)
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
-    def initialize(name = nil, opts = {})
+    def initialize(type, name = nil, opts = {})
       @name = name || SecureRandom.hex(16) # FIXME check that the content id isn't already used
+      raise ArgumentError, "name cannot contain whitespace" if @name.match(/\s/)
+
+      @type = type
+      raise ArgumentError, "type cannot be an empty string" if @type.empty?
+      raise ArgumentError, "type cannot contain whitespace" if @type.match(/\s/)
+
       @repo = opts[:repo]
       @content = opts[:content]
     end
@@ -66,7 +72,7 @@ module Colonel
       parents = [repository.references[refs].target_id].compact
       @revision = commit!(@content, parents, refs, author, message, timestamp)
 
-      index.register(name)
+      index.register(name, type)
 
       @revision
     end
@@ -191,30 +197,6 @@ module Colonel
       end
     end
 
-    # Public: Roll back the current revision in a given state to the previous one in that state.
-    # If there is no previous revision in the given state, remove the state branch. Doesn't load
-    # the revision rolled back to by default, you have to do it manually if required.
-    #
-    # state - the state to roll back (e.g. 'published')
-    #
-    # Returns the new current revision in the given state
-    def rollback!(state)
-      ref = repository.references["refs/heads/#{state}"]
-      sha = ref.target_id if ref
-
-      commit = repository.lookup(sha)
-
-      if commit.parents.length < 2
-        ref.delete!
-        return nil
-      end
-
-      parent = commit.parents.first.oid
-      ref.set_target(parent)
-
-      parent
-    end
-
     # Internal: The Rugged repository object for the given document
     def repository
       unless Colonel.config.rugged_backend.nil?
@@ -226,7 +208,7 @@ module Colonel
 
     # Internal: Document index to register the document with when saving to keep track of it
     def index
-      @index ||= DocumentIndex.new(Colonel.config.storage_path)
+      @index ||= self.class.index
     end
 
     # Class methods
@@ -249,10 +231,16 @@ module Colonel
           return nil
         end
 
-        doc = Document.new(name, repo: repo)
+        type = index.lookup(name)[:type]
+        doc = Document.new(type, name, repo: repo)
         doc.load!(rev)
 
         doc
+      end
+
+      # Internal: Document index to register the document with when saving to keep track of it
+      def index
+        DocumentIndex.new(Colonel.config.storage_path)
       end
     end
 
