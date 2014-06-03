@@ -12,7 +12,7 @@ module Colonel
   class Document
     ROOT_REF = 'refs/tags/root'.freeze
 
-    attr_reader :name, :revision, :type
+    attr_reader :name, :revision
     attr_accessor :content
 
     # Public: create a new document
@@ -20,20 +20,26 @@ module Colonel
     # type    - string type of the document
     # name    - the name of the document, must be a valid filename. Will be generated randomly if not provided,
     #           cannot contain whitespace.
-    # options - an options Hash with extra attributes
+    # options - an options Hash es_client.swith extra attributes
     #           :content - the new document's content (optional)
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
     def initialize(type, name = nil, opts = {})
       @name = name || SecureRandom.hex(16) # FIXME check that the content id isn't already used
-      raise ArgumentError, "name cannot contain whitespace" if @name.match(/\s/)
+      raise ArgumentError, "name cannot contain whitespace" if @name.strip.empty?
 
       @type = type
-      raise ArgumentError, "type cannot be an empty string" if @type.empty?
-      raise ArgumentError, "type cannot contain whitespace" if @type.match(/\s/)
-
       @repo = opts[:repo]
       @content = opts[:content]
+    end
+
+    def type
+      return @type if @type
+
+      doc = index.lookup(name)
+      raise ArgumentError, "Document type cannot contain whitespace" if doc.nil?
+
+      @type = doc[:type]
     end
 
     # Storage
@@ -231,8 +237,7 @@ module Colonel
           return nil
         end
 
-        type = index.lookup(name)[:type]
-        doc = Document.new(type, name, repo: repo)
+        doc = Document.new(nil, name, repo: repo)
         doc.load!(rev)
 
         doc
