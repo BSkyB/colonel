@@ -42,7 +42,7 @@ Colonel.config.elasticsearch_uri = 'elasticsearch.myapp.com:9200'
 Colonel.config.rugged_backend = backend_instance # optional, see below
 ```
 
-### Create or open a ContenItem
+### Create or open a ContentItem
 
 You can start using The Colonel without deriving your own content type. It can handle any kind
 of content structure and has sensible defaults for indexing.
@@ -169,14 +169,15 @@ If you need more than that, you can search across all of the content. You can do
 * `from` - Start from a certain number of results
 * `latest` - Denotes searching across only the current state of a document rather than including its revisions.
 * `sort` - sort specification from elastic search.
+* `raw` - when `true`, returns only fields available in ElasticSearch in a `Content` rather than a `ContentItem` instance
 
 #### Query using DSL
 ```ruby
 query = {
-  query: { 
-    filtered: { 
+  query: {
+    filtered: {
       query: {
-        query_string: { query: "My Document" } 
+        query_string: { query: "My Document" }
       }
     }
   }

@@ -338,7 +338,15 @@ describe ContentItem do
 
     describe "Listing and searching" do
       let :results do
-        {"hits" => {"hits" => []}}
+        {"hits" => {"hits" => [{"_source" => {"hi" => "hi."}}]}}
+      end
+
+      let :document do
+        Document.new("test-type")
+      end
+
+      before do
+        allow(Document).to receive(:open).and_return(document)
       end
 
       it "should list all the items" do
@@ -419,6 +427,38 @@ describe ContentItem do
 
         expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
         ContentItem.search("query")
+      end
+
+      it "should hydrate the hits" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          }
+        }
+
+        allow(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
+        results = ContentItem.search("query")
+
+        expect(results).to have_key(:hits)
+        expect(results[:hits].first).to be_a(Colonel::ContentItem)
+      end
+
+      it "should hydrate the raw hits" do
+        body = {
+          query: {
+            query_string: {
+              query: "query"
+            }
+          }
+        }
+
+        allow(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
+        results = ContentItem.search("query", raw: true)
+
+        expect(results).to have_key(:hits)
+        expect(results[:hits].first).to be_a(Colonel::Content)
       end
 
       it "should search with DSL query" do
