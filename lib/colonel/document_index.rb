@@ -30,7 +30,7 @@ module Colonel
 
       file = repository.lookup(rev).read_raw.data
       @documents = file.split("\n").map do |d|
-        parts = d.split(/\s+/)
+        parts = d.split(' ')
         {name: parts[0].strip, type: (parts[1] || "").strip }
       end
     end

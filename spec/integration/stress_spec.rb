@@ -118,8 +118,6 @@ describe "Stress test", live: true do
         end
       end
 
-      binding.pry if pub_rev.nil?
-
       expect(pub_rev).not_to be_nil
     end
 

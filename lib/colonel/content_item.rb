@@ -253,7 +253,7 @@ module Colonel
       #         :size - how many results to show
       #
       # Returns the elasticsearch result set
-      def search(query, opts = {})
+      def search(query, opts = {raw: false})
         query = { query: { query_string: { query: query }}} if query.is_a?(String) && !opts[:history]
         query = { query: { has_child: { type: revision_type_name.to_s, query: { query_string: { query: query }}}}} if opts[:history]
 
@@ -270,7 +270,7 @@ module Colonel
 
         res = es_client.search(index: index_name, type: item_type, body: body)
 
-        hydrate_hits(res)
+        hydrate_hits(res, opts)
       end
 
       # Public: Set or retrieve the ittem type in elasticsearch
@@ -366,12 +366,16 @@ module Colonel
       private
 
       # Internal: Walk through elasticsearch hits and turn them into ContentItem instances
-      def hydrate_hits(es_res)
+      def hydrate_hits(es_res, opts={})
         facets = es_res["facets"]
         hits   = es_res["hits"]
 
         hits["hits"] = hits["hits"].map do |hit|
-          open(hit["_source"]["id"], hit["_source"]["revision"])
+          if opts[:raw]
+            Content.new(hit["_source"])
+          else
+            open(hit["_source"]["id"], hit["_source"]["revision"])
+          end
         end
 
         # FIXME this should probably be a result set class with Enumerable mixin
