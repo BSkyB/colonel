@@ -140,7 +140,7 @@ module Colonel
           author: commit.author,
           time: commit.time,
           type: [:orphan, :save, :promotion][commit.parents.count],
-          parents: (first_commit?(commit) ? commit.parents[1..-1] : commit.parents).map(&:oid)
+          parents: parents_hash(commit)
         }
         yield results.last if block_given?
 
@@ -276,6 +276,20 @@ module Colonel
 
     def first_commit?(commit)
       commit.parents.map(&:oid).include?(root_commit_oid)
+    end
+
+    def parents_hash(commit)
+      first, second = commit.parents.map(&:oid)
+
+      if second && first != root_commit_oid
+        {previous: first, source: second}
+      elsif second && first == root_commit_oid
+        {source: second}
+      elsif second.nil? && first != root_commit_oid
+        {previous: first}
+      else # i.e. second.nil? && firt == root_commit_oid
+        {}
+      end
     end
 
     def on_master?(commit)
