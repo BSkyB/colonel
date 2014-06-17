@@ -254,10 +254,10 @@ module Colonel
       #
       # Returns the elasticsearch result set
       def search(query, opts = {raw: false})
-        query = { query_string: { query: query }} if query.is_a?(String)
-        query = { has_child: { type: revision_type_name.to_s, query: query }} if opts[:history]
+        query = { query: { query_string: { query: query }} }if query.is_a?(String)
+        query = { query: { has_child: { type: revision_type_name.to_s }.merge(query) } } if opts[:history]
 
-        body = { query: query }
+        body = query
 
         body[:from] = opts[:from] if opts[:from]
         body[:size] = opts[:size] if opts[:size]
