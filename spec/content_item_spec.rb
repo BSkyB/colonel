@@ -471,7 +471,7 @@ describe ContentItem do
         }
 
         expect(client).to receive(:search).with(index: 'colonel-content-index', type: 'content_item', body: body).and_return(results)
-        ContentItem.search(query: { match: {id: 'abcdef'} })
+        ContentItem.search({ match: {id: 'abcdef'} })
       end
 
       it "should sort search" do
