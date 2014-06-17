@@ -139,7 +139,8 @@ module Colonel
           message: commit.message,
           author: commit.author,
           time: commit.time,
-          type: [:orphan, :save, :promotion][commit.parents.count]
+          type: [:orphan, :save, :promotion][commit.parents.count],
+          parents: (first_commit?(commit) ? commit.parents[1..-1] : commit.parents).map(&:oid)
         }
         yield results.last if block_given?
 

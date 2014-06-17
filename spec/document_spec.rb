@@ -424,9 +424,9 @@ describe Document do
       doc.history('preview') { |cmt| history << cmt}
 
       expect(history).to eq([
-        {rev: 'p3', message: 'meow', author: 'aliens', time: time, type: :save},
-        {rev: 'p2', message: 'hey', author: 'me', time: time, type: :promotion},
-        {rev: 'p1', message: 'bye', author: 'you', time: time, type: :promotion}
+        {rev: 'p3', message: 'meow', author: 'aliens', time: time, type: :save, parents: ['p2']},
+        {rev: 'p2', message: 'hey', author: 'me', time: time, type: :promotion, parents: ['p1', 'm2']},
+        {rev: 'p1', message: 'bye', author: 'you', time: time, type: :promotion, parents: ['m1']}
       ])
     end
   end
