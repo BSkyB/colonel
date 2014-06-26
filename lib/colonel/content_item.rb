@@ -94,7 +94,7 @@ module Colonel
       document.content = @content.to_json
       sha = document.save_in!(state, author, message, timestamp)
 
-      index!(state: state, updated_at: timestamp, revision: sha)
+      index!(state: state, updated_at: timestamp, revision: sha, event: {name: :save, to: state})
 
       sha
     end
@@ -107,6 +107,10 @@ module Colonel
     #        :state - the state of the document
     #        :updated_at - the timestamp
     #        :revision - the sha of the revision
+    #        :event - the event causing the index - object with keys:
+    #                 :name - :save or :promote
+    #                 :from - from state name
+    #                 :to   - to state name
     #
     # Returns nothing
     def index!(opts = {})
@@ -141,7 +145,7 @@ module Colonel
     def promote!(from, to, author, message = '', timestamp = Time.now)
       sha = document.promote!(from, to, author, message, timestamp)
 
-      index!(state: to, revision: sha, updated_at: timestamp)
+      index!(state: to, revision: sha, updated_at: timestamp, event: {name: :promotion, from: from, to: to})
 
       sha
     end
@@ -168,6 +172,7 @@ module Colonel
       state = opts[:state] || 'master'
       updated_at = opts[:updated_at]
       sha = opts[:revision]
+      event = opts[:event]
 
       body = {
         id: id,
@@ -182,11 +187,19 @@ module Colonel
       item_id = "#{@id}-#{state}"
       rev_id = "#{@id}-#{sha}"
 
-      [
-        {index: {_index: self.class.index_name, _type: self.class.latest_type_name.to_s, _id: latest_id, data: body}},
+      cmds = [
         {index: {_index: self.class.index_name, _type: self.class.item_type_name.to_s, _id: item_id, data: body}},
         {index: {_index: self.class.index_name, _type: self.class.revision_type_name.to_s, _id: rev_id, _parent: item_id, data: body}}
       ]
+
+      self.class.scopes.each do |scope, pred|
+        next unless event[:name] == pred[:on].to_sym && pred[:to] == event[:to] && (pred[:from] == event[:from] || pred[:from].nil?)
+
+        name = "#{self.class.item_type_name}_#{scope}"
+        cmds << {index: {_index: self.class.index_name, _type: name, _id: item_id, data: body}}
+      end
+
+      cmds
     end
 
     # Internal: Forward relevant methods to the content to allow more natural API
@@ -247,7 +260,7 @@ module Colonel
       # query - string, or elastic search query DSL. Forwarded to elasticsearch
       # opts  - an options hash
       #         :history - boolean, search across all revisions. Default false.
-      #         :latest - denotes to filter only on latest state of content items.
+      #         :scope - filter search to a custom scope
       #         :sort - sort specification
       #         :from - how many results to skip
       #         :size - how many results to show
@@ -265,12 +278,24 @@ module Colonel
         body[:sort] = opts[:sort] if opts[:sort]
         body[:sort] = [body[:sort]] if body[:sort] && !body[:sort].is_a?(Array)
 
-        item_type = "#{item_type_name.to_s}_latest" if opts[:latest]
-        item_type = "#{item_type_name.to_s}" if !opts[:latest]
+        if opts[:scope]
+          item_type = "#{item_type_name.to_s}_#{opts[:scope]}"
+        else
+          item_type = "#{item_type_name.to_s}"
+        end
 
         res = es_client.search(index: index_name, type: item_type, body: body)
 
         hydrate_hits(res, opts)
+      end
+
+      def scope(name, predicates)
+        @scopes ||= {}
+        @scopes[name] = predicates
+      end
+
+      def scopes
+        @scopes ||= {}
       end
 
       # Public: Set or retrieve the ittem type in elasticsearch
@@ -329,18 +354,17 @@ module Colonel
         item_type_name + "_rev"
       end
 
-      # Internal: Latest state content item type name for elastic search.
-      def latest_type_name
-        item_type_name + "_latest"
-      end
-
       # Public: idempotently create the ES index
       def ensure_index!
         unless es_client.indices.exists index: index_name
           body = { mappings: {} }
           body[:mappings][item_type_name] = item_mapping
-          body[:mappings][latest_type_name] = item_mapping
           body[:mappings][revision_type_name] = revision_mapping
+
+          scopes.each do |name, preds|
+            name = "#{item_type_name}_#{name}"
+            body[:mappings][name] = item_mapping
+          end
 
           es_client.indices.create index: index_name, body: body
         end
@@ -351,16 +375,19 @@ module Colonel
         item_body = {
           item_type_name => item_mapping
         }
-        latest_item_body = {
-          latest_type_name => item_mapping
-        }
         revision_body = {
           revision_type_name=> revision_mapping
         }
 
-        es_client.indices.put_mapping index: index_name, type: latest_type_name, body: latest_item_body
         es_client.indices.put_mapping index: index_name, type: item_type_name, body: item_body
         es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
+
+        scopes.each do |name, preds|
+          name = "#{item_type_name}_#{name}"
+          body = {name => item_mapping}
+
+          es_client.indices.put_mapping index: index_name, type: name, body: body
+        end
       end
 
       private

@@ -27,9 +27,11 @@ module Colonel
 
         rev_indexes = []
         state_indexes = {}
-        latest_index = nil
+        custom_indexes = {}
 
         content_item = klass.open(document.name)
+
+        raise "PREINDEX THE REVS TO BE ABLE TO FIND THEIR STATE"
 
         repo.references.each do |ref|
           state = ref.name.split("/").last
@@ -41,9 +43,15 @@ module Colonel
             sha = r[:rev]
             date = r[:time]
 
+            event = {
+              name: r[:type],
+              to: state
+            }
+            event[:from] = "????" if r[:type] == :promotion
+
             # get index commands
             content_item.load!(sha)
-            cmds = content_item.index_commands(state: state, revision: sha, updated_at: date)
+            cmds = content_item.index_commands(state: state, revision: sha, updated_at: date, event: event)
 
             # add or update the index commands for documents
             cmds.each do |cmd|
@@ -51,23 +59,24 @@ module Colonel
               when klass.revision_type_name
 
                 rev_indexes << cmd
-              when klass.latest_type_name
-                updated_at =  Time.parse(cmd[:index][:data][:updated_at])
-                latest_updated_at = Time.parse(latest_index[:index][:data][:updated_at]) if latest_index
-
-                latest_index = cmd if latest_updated_at.nil? || updated_at > latest_updated_at
               when klass.item_type_name
                 updated_at =  Time.parse(cmd[:index][:data][:updated_at])
                 state_updated_at = Time.parse(state_indexes[state][:index][:data][:updated_at]) if state_indexes[state]
 
                 state_indexes[state] = cmd if state_updated_at.nil? || updated_at > state_updated_at
+              else
+                updated_at =  Time.parse(cmd[:index][:data][:updated_at])
+                name = cmd[:index][:_index]
+                custom_updated_at = Time.parse(state_indexes[name][:index][:data][:updated_at]) if custom_indexes[name]
+
+                latest_index = cmd if custom_updated_at.nil? || updated_at > custom_updated_at
               end
             end
           end
         end
 
         # return all the commands together
-        rev_indexes + state_indexes.values + [latest_index]
+        rev_indexes + state_indexes.values + custom_indexes.values
       end
 
       private
