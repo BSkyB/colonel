@@ -109,7 +109,6 @@ module Colonel
     #        :revision - the sha of the revision
     #        :event - the event causing the index - object with keys:
     #                 :name - :save or :promote
-    #                 :from - from state name
     #                 :to   - to state name
     #
     # Returns nothing
@@ -145,7 +144,7 @@ module Colonel
     def promote!(from, to, author, message = '', timestamp = Time.now)
       sha = document.promote!(from, to, author, message, timestamp)
 
-      index!(state: to, revision: sha, updated_at: timestamp, event: {name: :promotion, from: from, to: to})
+      index!(state: to, revision: sha, updated_at: timestamp, event: {name: :promotion, to: to})
 
       sha
     end
@@ -193,7 +192,7 @@ module Colonel
       ]
 
       self.class.scopes.each do |scope, pred|
-        next unless event[:name] == pred[:on].to_sym && pred[:to] == event[:to] && (pred[:from] == event[:from] || pred[:from].nil?)
+        next unless event[:name] == pred[:on].to_sym && pred[:to] == event[:to]
 
         name = "#{self.class.item_type_name}_#{scope}"
         cmds << {index: {_index: self.class.index_name, _type: name, _id: item_id, data: body}}

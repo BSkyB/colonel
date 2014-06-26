@@ -31,8 +31,6 @@ module Colonel
 
         content_item = klass.open(document.name)
 
-        raise "PREINDEX THE REVS TO BE ABLE TO FIND THEIR STATE"
-
         repo.references.each do |ref|
           state = ref.name.split("/").last
           next if state == "root"
@@ -47,7 +45,6 @@ module Colonel
               name: r[:type],
               to: state
             }
-            event[:from] = "????" if r[:type] == :promotion
 
             # get index commands
             content_item.load!(sha)

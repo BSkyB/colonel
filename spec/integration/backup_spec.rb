@@ -82,5 +82,7 @@ describe "Stress test", live: true do
 
     expect(ContentItem.list[:total]).to eq(20)
     expect(ContentItem.list(state: 'published')[:total]).to be > 10
+
+    pending "Test custom scope get restored"
   end
 end

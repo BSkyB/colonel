@@ -687,9 +687,8 @@ describe ContentItem do
 
       ContentItem.scope "saved", on: 'save', to: 'custom'
       ContentItem.scope "saved_x", on: 'save', to: 'meh'
-      ContentItem.scope "promoted", on: 'promotion', from: 'master', to: 'custom'
-      ContentItem.scope "promoted_x", on: 'promotion', from: 'foo', to: 'custom'
-      ContentItem.scope "promoted_y", on: 'promotion', from: 'master', to: 'foo'
+      ContentItem.scope "promoted", on: 'promotion', to: 'custom'
+      ContentItem.scope "promoted_y", on: 'promotion', to: 'foo'
 
       item = ContentItem.new(body: 'foo')
 
@@ -703,7 +702,7 @@ describe ContentItem do
       expect(commands[2]).to have_key(:index)
       expect(commands[2][:index][:_type]).to eq('content_item_saved')
 
-      commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :promotion, from: 'master', to: 'custom'})
+      commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :promotion, to: 'custom'})
 
       expect(commands.length).to eq(3)
       expect(commands[0]).to have_key(:index)
@@ -733,7 +732,7 @@ describe ContentItem do
       allow(item.document).to receive(:promote!)
       allow(client).to receive(:bulk)
 
-      expect(item).to receive(:index_commands).with(state: 'custom', updated_at: anything(), revision: anything(), event: {name: :promotion, from: 'master', to: 'custom'})
+      expect(item).to receive(:index_commands).with(state: 'custom', updated_at: anything(), revision: anything(), event: {name: :promotion, to: 'custom'})
 
       item.promote!('master', 'custom', 'foo', '', time)
     end
