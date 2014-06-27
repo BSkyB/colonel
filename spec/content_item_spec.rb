@@ -124,9 +124,6 @@ describe ContentItem do
   end
 
   describe "document API" do
-    before do
-    end
-
     let :con do
       ContentItem.new(nil).tap do |con|
         allow(con).to receive(:index!)
@@ -200,7 +197,6 @@ describe ContentItem do
         expect(indices).to receive(:create).with(index: 'colonel-content-index', body: {
           mappings: {
             'content_item' => ContentItem.item_mapping,
-            'content_item_latest' => ContentItem.item_mapping,
             'content_item_rev' => ContentItem.send(:default_revision_mapping)
           }
         }).and_return(true)
@@ -282,7 +278,6 @@ describe ContentItem do
         body = { id: ci.id, revision: 'yzw', state: 'master', updated_at: time.iso8601, body: "foobar" }
 
         expect(client).to receive(:bulk).with(body: [
-          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
         ])
@@ -296,7 +291,6 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'xyz1', state: 'master', updated_at: time.iso8601, body: "foobar" }
         expect(client).to receive(:bulk).with(body: [
-          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-master", data: body}}
         ])
@@ -310,7 +304,6 @@ describe ContentItem do
 
         body = { id: ci.id, revision: 'xyz1', state: 'preview', updated_at: time.iso8601, body: "foobar" }
         expect(client).to receive(:bulk).with(body: [
-          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-preview", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-xyz1", _parent: "#{ci.id}-preview", data: body}}
         ])
@@ -327,7 +320,6 @@ describe ContentItem do
         }
 
         expect(client).to receive(:bulk).with(body: [
-          {index: {_index: 'colonel-content-index', _type: 'content_item_latest', _id: "#{ci.id}", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item', _id: "#{ci.id}-master", data: body}},
           {index: {_index: 'colonel-content-index', _type: 'content_item_rev', _id: "#{ci.id}-yzw", _parent: "#{ci.id}-master", data: body}}
         ])
@@ -594,29 +586,6 @@ describe ContentItem do
           }
         }
 
-        latest_body = {
-          'content_item_latest' => {
-            properties: {
-              # _id is "{id}-{state}"
-              id: {
-                type: 'string',
-                index: 'not_analyzed'
-              },
-              state: {
-                type: 'string',
-                index: 'not_analyzed'
-              },
-              updated_at: {
-                type: 'date'
-              },
-              tags: {
-                type: 'string',
-                index: 'not_analyzed'
-              }
-            }
-          }
-        }
-
         rev_body = {
           'content_item_rev' => {
             _source: { enabled: false }, # you only get what you store
@@ -651,12 +620,143 @@ describe ContentItem do
 
         allow(client).to receive(:indices).and_return(indices)
 
-        expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_latest', body: latest_body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item', body: body)
         expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_rev', body: rev_body)
 
         ContentItem.put_mapping!
       end
     end
+  end
+
+  describe "custom scopes" do
+    let :client do
+      double(:client)
+    end
+
+    let :indices do
+      double(:indices)
+    end
+
+    before do
+      allow(ContentItem).to receive(:es_client).and_return(client)
+    end
+
+    it "should put mapping for user defined scopes" do
+      ContentItem.scope "custom", on: 'save', to: 'my_state'
+      ContentItem.scope "another", on: 'promote', to: 'my_state'
+
+      allow(client).to receive(:indices).and_return(indices)
+
+      expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item', body: anything())
+      expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_rev', body: anything())
+      expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_custom', body: anything())
+      expect(indices).to receive(:put_mapping).with(index: 'colonel-content-index', type: 'content_item_another', body: anything())
+
+      ContentItem.put_mapping!
+    end
+
+    it "should create index with user defined scopes" do
+      mapping = "mapping"
+      rev_mapping = "rev_mapping"
+
+      all_mappings = {
+        mappings: {
+          'content_item' => mapping,
+          'content_item_rev' => rev_mapping,
+          'content_item_custom' => mapping,
+          'content_item_another' => mapping
+        }
+      }
+
+      ContentItem.scope "custom", on: 'save', to: 'my_state'
+      ContentItem.scope "another", on: 'promote', to: 'my_state'
+
+      allow(client).to receive(:indices).and_return(indices)
+      allow(indices).to receive(:exists).with(index: 'colonel-content-index').and_return(false)
+
+      allow(ContentItem).to receive(:item_mapping).and_return('mapping')
+      allow(ContentItem).to receive(:revision_mapping).and_return('rev_mapping')
+
+      expect(indices).to receive(:create).with(index: 'colonel-content-index', body: all_mappings)
+
+      ContentItem.ensure_index!
+    end
+
+    it "should generate index commands with user defined scopes" do
+      time = Time.now
+
+      ContentItem.scope "saved", on: 'save', to: 'custom'
+      ContentItem.scope "saved_x", on: 'save', to: 'meh'
+      ContentItem.scope "promoted", on: 'promotion', to: 'custom'
+      ContentItem.scope "promoted_y", on: 'promotion', to: 'foo'
+      ContentItem.scope "sp", on: ['save', 'promotion'], to: 'custom'
+
+      item = ContentItem.new(body: 'foo')
+
+      commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :save, to: 'custom'})
+
+      expect(commands.length).to eq(4)
+      expect(commands[0]).to have_key(:index)
+      expect(commands[0][:index][:_type]).to eq('content_item')
+      expect(commands[1]).to have_key(:index)
+      expect(commands[1][:index][:_type]).to eq('content_item_rev')
+      expect(commands[2]).to have_key(:index)
+      expect(commands[2][:index][:_type]).to eq('content_item_saved')
+      expect(commands[3]).to have_key(:index)
+      expect(commands[3][:index][:_type]).to eq('content_item_sp')
+      expect(commands[3][:index][:_id]).to match(/[0-9a-e]+/)
+
+      commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :promotion, to: 'custom'})
+
+      expect(commands.length).to eq(4)
+      expect(commands[0]).to have_key(:index)
+      expect(commands[0][:index][:_type]).to eq('content_item')
+      expect(commands[1]).to have_key(:index)
+      expect(commands[1][:index][:_type]).to eq('content_item_rev')
+      expect(commands[2]).to have_key(:index)
+      expect(commands[2][:index][:_type]).to eq('content_item_promoted')
+      expect(commands[3]).to have_key(:index)
+      expect(commands[3][:index][:_type]).to eq('content_item_sp')
+      expect(commands[3][:index][:_id]).to match(/[0-9a-e]+/)
+    end
+
+    it "should select correct scopes on save" do
+      time = Time.now
+      item = ContentItem.new(body: 'foo')
+
+      allow(item.document).to receive(:save_in!)
+      allow(client).to receive(:bulk)
+
+      expect(item).to receive(:index_commands).with(state: 'master', updated_at: anything(), revision: anything(), event: {name: :save, to: 'master'})
+
+      item.save!('foo', '', time)
+    end
+
+    it "should select correct scopes on promote" do
+      time = Time.now
+      item = ContentItem.new(body: 'foo')
+
+      allow(item.document).to receive(:promote!)
+      allow(client).to receive(:bulk)
+
+      expect(item).to receive(:index_commands).with(state: 'custom', updated_at: anything(), revision: anything(), event: {name: :promotion, to: 'custom'})
+
+      item.promote!('master', 'custom', 'foo', '', time)
+    end
+
+    it "should search within a specified scope" do
+      expect(client).to receive(:search).with(index: anything(), type: 'content_item_whee', body: anything()).and_return("foo")
+      expect(ContentItem).to receive(:hydrate_hits).and_return(:foo)
+
+      ContentItem.search('blah', scope: 'whee')
+    end
+
+    it "should list within a specified scope" do
+      expect(client).to receive(:search).with(index: anything(), type: 'content_item_whee', body: anything()).and_return("foo")
+      expect(ContentItem).to receive(:hydrate_hits).and_return(:foo)
+
+      ContentItem.list(scope: 'whee')
+    end
+
   end
 end

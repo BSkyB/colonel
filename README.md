@@ -194,6 +194,32 @@ ContentItem.search('How to use the Colonel?', { size: 10 })
 The query can be either a string or a Hash. It gets passed through to the underlying Elasticsearch
 index, so you can use all the power that [Elasticsearch provides]().
 
+### Custom indexing scopes
+
+For some workflows, the default indexing the Colonel does is not enough and you need your own special "revision logs".
+Let's say you have a workflow that promotes articles from a `master` state to `published` or `archived` state. To
+quickly list all articles that were published **and not later archived**, you can't rely on just the state listings.
+For one you'd have to compare the timestamps on the records to find out which is more recent, and you'd also need
+two queries to do the job.
+
+In this case it's much better to define a custom scope for the events, like this
+
+```ruby
+class DocumentItem < Colonel::ContentItem
+  ...
+  scope 'visible', on: [:save, :promotion], to: ['published', 'archived']
+```
+
+This will index the document with a scope 'visible', every time it is saved or promoted into the listed states.
+You can pass a single state or multiple states and the same for events (there are just two - `:save`, and `:promotion`).
+The visible scope will therefore include just the latest of all the selected changes.
+
+Then you can search with the `visible` scope and narrow the results by state
+
+```ruby
+DocumentItem.search('state:published', scope: 'visible')
+```
+
 ### Custom content type
 
 In most cases you'd want to derive from the content item and create your own content type.
