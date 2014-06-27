@@ -64,9 +64,9 @@ module Colonel
               else
                 updated_at =  Time.parse(cmd[:index][:data][:updated_at])
                 name = cmd[:index][:_index]
-                custom_updated_at = Time.parse(state_indexes[name][:index][:data][:updated_at]) if custom_indexes[name]
+                custom_updated_at = Time.parse(custom_indexes[name][:index][:data][:updated_at]) if custom_indexes[name]
 
-                latest_index = cmd if custom_updated_at.nil? || updated_at > custom_updated_at
+                custom_indexes[name] = cmd if custom_updated_at.nil? || updated_at > custom_updated_at
               end
             end
           end

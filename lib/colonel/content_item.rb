@@ -192,7 +192,9 @@ module Colonel
       ]
 
       self.class.scopes.each do |scope, pred|
-        next unless event[:name] == pred[:on].to_sym && pred[:to] == event[:to]
+        on = [pred[:on]].flatten.map(&:to_sym)
+        to = [pred[:to]].flatten.map(&:to_sym)
+        next unless on.any? { |o| o.to_sym == event[:name].to_sym } && to.any? { |t| t == event[:to].to_sym }
 
         name = "#{self.class.item_type_name}_#{scope}"
         cmds << {index: {_index: self.class.index_name, _type: name, _id: item_id, data: body}}

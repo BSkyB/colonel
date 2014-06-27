@@ -689,28 +689,34 @@ describe ContentItem do
       ContentItem.scope "saved_x", on: 'save', to: 'meh'
       ContentItem.scope "promoted", on: 'promotion', to: 'custom'
       ContentItem.scope "promoted_y", on: 'promotion', to: 'foo'
+      ContentItem.scope "sp", on: ['save', 'promotion'], to: 'custom'
 
       item = ContentItem.new(body: 'foo')
 
       commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :save, to: 'custom'})
 
-      expect(commands.length).to eq(3)
+      expect(commands.length).to eq(4)
       expect(commands[0]).to have_key(:index)
       expect(commands[0][:index][:_type]).to eq('content_item')
       expect(commands[1]).to have_key(:index)
       expect(commands[1][:index][:_type]).to eq('content_item_rev')
       expect(commands[2]).to have_key(:index)
       expect(commands[2][:index][:_type]).to eq('content_item_saved')
+      expect(commands[3]).to have_key(:index)
+      expect(commands[3][:index][:_type]).to eq('content_item_sp')
+
 
       commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :promotion, to: 'custom'})
 
-      expect(commands.length).to eq(3)
+      expect(commands.length).to eq(4)
       expect(commands[0]).to have_key(:index)
       expect(commands[0][:index][:_type]).to eq('content_item')
       expect(commands[1]).to have_key(:index)
       expect(commands[1][:index][:_type]).to eq('content_item_rev')
       expect(commands[2]).to have_key(:index)
       expect(commands[2][:index][:_type]).to eq('content_item_promoted')
+      expect(commands[3]).to have_key(:index)
+      expect(commands[3][:index][:_type]).to eq('content_item_sp')
     end
 
     it "should select correct scopes on save" do

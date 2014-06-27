@@ -68,6 +68,8 @@ describe "Stress test", live: true do
 
     dump.rewind
 
+    ContentItem.scope 'visible', on: ['save', 'promotion'], to: ['published', 'archived']
+
     Serializer.load(dump) do |doc|
       expect(doc.history.length).to be >= 3
     end
@@ -81,8 +83,10 @@ describe "Stress test", live: true do
     client.indices.refresh index: Colonel.config.index_name
 
     expect(ContentItem.list[:total]).to eq(20)
-    expect(ContentItem.list(state: 'published')[:total]).to be > 10
+    expect(ContentItem.list(state: 'published')[:total]).to eq(15)
 
-    pending "Test custom scope get restored"
+    currently_published = ContentItem.search('state:published', scope: 'visible')[:total]
+    expect(currently_published).to be >= 10
+    expect(currently_published).to be <= 15
   end
 end
