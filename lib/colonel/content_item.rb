@@ -197,7 +197,7 @@ module Colonel
         next unless on.any? { |o| o.to_sym == event[:name].to_sym } && to.any? { |t| t == event[:to].to_sym }
 
         name = "#{self.class.item_type_name}_#{scope}"
-        cmds << {index: {_index: self.class.index_name, _type: name, _id: item_id, data: body}}
+        cmds << {index: {_index: self.class.index_name, _type: name, _id: latest_id, data: body}}
       end
 
       cmds
@@ -245,8 +245,11 @@ module Colonel
         query[:sort] = opts[:sort] if opts[:sort]
         query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
 
-        item_type = "#{item_type_name.to_s}_latest" if opts[:latest]
-        item_type = "#{item_type_name.to_s}" if !opts[:latest]
+        if opts[:scope]
+          item_type = "#{item_type_name.to_s}_#{opts[:scope]}"
+        else
+          item_type = "#{item_type_name.to_s}"
+        end
 
         res = es_client.search(index: index_name, type: item_type, body: query)
 

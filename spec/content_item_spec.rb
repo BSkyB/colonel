@@ -704,7 +704,7 @@ describe ContentItem do
       expect(commands[2][:index][:_type]).to eq('content_item_saved')
       expect(commands[3]).to have_key(:index)
       expect(commands[3][:index][:_type]).to eq('content_item_sp')
-
+      expect(commands[3][:index][:_id]).to match(/[0-9a-e]+/)
 
       commands = item.index_commands(state: 'custom', updated_at: time, revision: 'abc', event: {name: :promotion, to: 'custom'})
 
@@ -717,6 +717,7 @@ describe ContentItem do
       expect(commands[2][:index][:_type]).to eq('content_item_promoted')
       expect(commands[3]).to have_key(:index)
       expect(commands[3][:index][:_type]).to eq('content_item_sp')
+      expect(commands[3][:index][:_id]).to match(/[0-9a-e]+/)
     end
 
     it "should select correct scopes on save" do
@@ -749,5 +750,13 @@ describe ContentItem do
 
       ContentItem.search('blah', scope: 'whee')
     end
+
+    it "should list within a specified scope" do
+      expect(client).to receive(:search).with(index: anything(), type: 'content_item_whee', body: anything()).and_return("foo")
+      expect(ContentItem).to receive(:hydrate_hits).and_return(:foo)
+
+      ContentItem.list(scope: 'whee')
+    end
+
   end
 end
