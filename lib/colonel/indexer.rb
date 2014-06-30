@@ -63,7 +63,7 @@ module Colonel
                 state_indexes[state] = cmd if state_updated_at.nil? || updated_at > state_updated_at
               else
                 updated_at =  Time.parse(cmd[:index][:data][:updated_at])
-                name = cmd[:index][:_index]
+                name = cmd[:index][:_type]
                 custom_updated_at = Time.parse(custom_indexes[name][:index][:data][:updated_at]) if custom_indexes[name]
 
                 custom_indexes[name] = cmd if custom_updated_at.nil? || updated_at > custom_updated_at
