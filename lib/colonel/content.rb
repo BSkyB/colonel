@@ -34,6 +34,14 @@ module Colonel
       @list[i] = val
     end
 
+    def get(key)
+      @table[key.to_sym]
+    end
+
+    def set(key, value)
+      @table[key.to_sym] = value
+    end
+
     def plain
       if @list
         @list.map do |item|
@@ -67,8 +75,10 @@ module Colonel
     def method_missing(meth, *args, &block)
       if @list && @list.respond_to?(meth)
         @list.send(meth, *args, &block)
+      elsif meth =~ /=$/ && args.length == 1 && @table.has_key?(meth.to_sym)
+        set(meth, args[0])
       elsif @table && @table.has_key?(meth.to_sym)
-        @table[meth]
+        get(meth)
       elsif @table && @table.respond_to?(meth)
         @table.send(meth, *args, &block)
       elsif args.length < 1 && !block_given?
