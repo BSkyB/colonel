@@ -1,36 +1,36 @@
 Feature: Save & Load
-  Content items are persistent. You save the current state
+  Documents are persistent. You save the current state
   of the document with a "save!" call.
 
   A save is tagged with an author and a message for auditing.
 
   ```ruby
-  item = ContentItem.new({name: {first: 'John', last: 'Doe'}})
-  item.save!({name: 'Bob The Author', email: 'bob@example.com'}, 'Created a file')
+  doc = Document.new({name: {first: 'John', last: 'Doe'}})
+  doc.save!({name: 'Bob The Author', email: 'bob@example.com'}, 'Created a file')
 
-  item_id = item.id
+  doc_id = doc.id
   ```
 
-  Saved item gets an alphanumeric content id you can use to retrieve it.
+  Saved document gets an alphanumeric id you can use to retrieve it.
 
   ```ruby
-  item = ContentItem.open(item_id)
+  doc = Document.open(doc_id)
 
-  item.name.first # => 'John'
+  doc.name.first # => 'John'
 
-  item.name.last # => 'Doe'
+  doc.name.last # => 'Doe'
   ```
 
-  Scenario: Save a content item and get its id
-    When I create a content item
+  Scenario: Save a document and get its id
+    When I create a document
     And I save it as "John Doe" with email "john@example.com"
-    Then the item should have an id I can use later
+    Then the document should have an id I can use later
 
-  Scenario: Find and open a content item by id
-    Given an existing content item stored as "test-id" with content:
+  Scenario: Find and open a document by id
+    Given an existing document stored as "test-id" with content:
       | name | type |
       | Test | text |
-    When I open content item using stored id "test-id"
+    When I open a document using stored id "test-id"
     Then I should get content:
       | name | type |
       | Test | text |

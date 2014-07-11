@@ -1,6 +1,7 @@
 require 'ostruct'
 
 module Colonel
+  # DEPRECATED
   # Public: Structured content storage. Backed by `Document` for versioning and publishing states support.
   # Content can be any data structure composed of hashes and arrays. It is then accessible through method
   # calls (similar to OpenStruct which it is based on). When saved, content item serializes the content
@@ -40,7 +41,7 @@ module Colonel
     #
     # Examples
     #
-    #   item = ContentItem.new('my-item', name: {first: 'John', last: 'Doe'}, tags: ['Staff', 'Management'])
+    #   item = ContentItem.new(name: {first: 'John', last: 'Doe'}, tags: ['Staff', 'Management'])
     #   item.name.first
     #   # => 'John'
     #

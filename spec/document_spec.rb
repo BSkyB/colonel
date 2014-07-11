@@ -24,36 +24,34 @@ describe Document do
     end
 
     it "should create a document" do
-      expect(Document.new('test-type')).to be_a Document
+      expect(Document.new(nil)).to be_a Document
     end
 
     it "should have a random name" do
-      document = Document.new('test-type')
-      expect(document.name).to match /^[0-9a-f]{32}$/
-    end
-
-    it "should have a name if specified" do
-      document = Document.new('test-type', 'test')
-      expect(document.name).to eq 'test'
+      document = Document.new(nil)
+      expect(document.id).to match /^[0-9a-f]{32}$/
     end
 
     it "should have a content if specified" do
-      document = Document.new('test-type', 'test', content: 'my test content')
-      expect(document.content).to eq 'my test content'
+      document = Document.new({content: 'my test content'})
+      expect(document.content.content).to eq 'my test content'
     end
   end
 
   describe "git storage" do
     it "should create a repository with the document's name when asked for repo" do
-      expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare)
+      doc = Document.new(nil)
+      expect(Rugged::Repository).to receive(:init_at).with("storage/#{doc.id}", :bare)
 
-      Document.new('test-type', 'test').repository
+      doc.repository
     end
   end
 
   describe "alternative storage" do
     let :doc do
-      Object.new
+      double(:document).tap do |it|
+        allow(it).to receive(:id).and_return("foo")
+      end
     end
 
     before :each do
@@ -71,9 +69,10 @@ describe Document do
     end
 
     it "should init with a given backend" do
-      expect(Rugged::Repository).to receive(:init_at).with('storage/test', :bare, backend: :foo)
+      doc = Document.new(nil)
+      expect(Rugged::Repository).to receive(:init_at).with("storage/#{doc.id}", :bare, backend: :foo)
 
-      Document.new('test-type', 'test').repository
+      doc.repository
     end
 
     it "should open with a given backend" do
@@ -81,9 +80,9 @@ describe Document do
       allow(doc).to receive(:load!)
       allow(Document).to receive(:index).and_return(index)
 
-      expect(Rugged::Repository).to receive(:bare).with("storage/test", backend: :foo)
+      expect(Rugged::Repository).to receive(:bare).with("storage/test-id", backend: :foo)
 
-      Document.open("test")
+      Document.open("test-id")
     end
   end
 
@@ -111,7 +110,7 @@ describe Document do
     end
 
     let :document do
-      Document.new 'test-type', "test", content: "some content"
+      Document.new(content: "some content")
     end
 
     let :time do
@@ -120,7 +119,7 @@ describe Document do
 
     let :mock_index do
       index = Object.new
-      allow(index).to receive(:register).with(document.name, document.type).and_return(true)
+      allow(index).to receive(:register).with(document.id, document.type).and_return(true)
 
       index
     end
@@ -131,7 +130,7 @@ describe Document do
     end
 
     it "should create a commit on first save without a commit message" do
-      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
       expect(Rugged::Index).to receive(:new).and_return index
       expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
@@ -155,7 +154,7 @@ describe Document do
     end
 
     it "should create a commit on first save with a commit message" do
-      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
       expect(Rugged::Index).to receive(:new).and_return index
       expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
@@ -184,7 +183,7 @@ describe Document do
       the_colonel = { name: 'The Colonel', email: 'colonel@example.com' }
 
       expect(document).to receive(:commit!).with('', [], 'refs/heads/master', the_colonel, 'First Commit', time).ordered.and_return(root_oid)
-      expect(document).to receive(:commit!).with('some content', [root_oid], 'refs/heads/master', the_colonel, 'Second Commit', time).ordered.once
+      expect(document).to receive(:commit!).with('{"content":"some content"}', [root_oid], 'refs/heads/master', the_colonel, 'Second Commit', time).ordered.once
 
       expect(repo.references).to receive(:create).with('refs/tags/root', root_oid)
 
@@ -192,7 +191,7 @@ describe Document do
     end
 
     it "should add a commit on subsequent saves" do
-      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
       expect(Rugged::Index).to receive(:new).and_return index
       expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
@@ -234,7 +233,7 @@ describe Document do
     end
 
     let :document do
-      Document.new 'test-type', "test", content: "some content"
+      Document.new(content: "some content")
     end
 
     let :time do
@@ -243,7 +242,7 @@ describe Document do
 
     let :mock_index do
       index = Object.new
-      allow(index).to receive(:register).with(document.name, document.type).and_return(true)
+      allow(index).to receive(:register).with(document.id, document.type).and_return(true)
     end
 
     before do
@@ -256,7 +255,7 @@ describe Document do
     end
 
     it "should register with document index when saving" do
-      expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
       expect(Rugged::Index).to receive(:new).and_return index
       expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
@@ -273,7 +272,7 @@ describe Document do
 
       expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
 
-      expect(document.index).to receive(:register).with(document.name, document.type).and_return(true)
+      expect(document.index).to receive(:register).with(document.id, document.type).and_return(true)
 
       allow(document).to receive(:init_repository).and_return(true)
 
@@ -310,7 +309,7 @@ describe Document do
     end
 
     let :document do
-      Document.new('test-type', 'test', repo: repo)
+      Document.new(nil, repo: repo)
     end
 
     it "should open the repository and get HEAD" do
@@ -321,7 +320,7 @@ describe Document do
       expect(tree).to receive(:first).and_return({oid: '12345', name: 'content'})
       expect(repo).to receive(:lookup).with('12345').and_return(file)
       expect(file).to receive(:read_raw).and_return(robj)
-      expect(robj).to receive(:data).and_return('foo')
+      expect(robj).to receive(:data).and_return('{"content":"foo"}')
 
       allow(Document).to receive(:index).and_return(index)
 
@@ -329,7 +328,7 @@ describe Document do
       expect(doc).to be_a(Document)
       expect(doc.repository).to eq(repo)
       expect(doc.revision).to eq('abcdef')
-      expect(doc.content).to eq('foo')
+      expect(doc.content.content).to eq('foo')
     end
 
     it "should load a given revision from sha" do
@@ -339,11 +338,11 @@ describe Document do
 
       expect(repo).to receive(:lookup).with('foo').and_return(file)
       expect(file).to receive(:read_raw).and_return(robj)
-      expect(robj).to receive(:data).and_return('data')
+      expect(robj).to receive(:data).and_return('{"content":"foo"}')
 
       expect(document.load!('abcde')).to eq('abcde')
       expect(document.revision).to eq('abcde')
-      expect(document.content).to eq('data')
+      expect(document.content.content).to eq('foo')
     end
 
     it "should load a given revision from state" do
@@ -357,11 +356,11 @@ describe Document do
 
       expect(repo).to receive(:lookup).with('foo').and_return(file)
       expect(file).to receive(:read_raw).and_return(robj)
-      expect(robj).to receive(:data).and_return('data')
+      expect(robj).to receive(:data).and_return('{"content":"foo"}')
 
       expect(document.load!('preview')).to eq('abcde')
       expect(document.revision).to eq('abcde')
-      expect(document.content).to eq('data')
+      expect(document.content.content).to eq('foo')
     end
   end
 
@@ -412,7 +411,7 @@ describe Document do
     end
 
     it "should list past revisions" do
-      doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
+      doc = Document.new(nil, revision: 'abcdefg', repo: repo)
 
       allow(repo.references).to receive(:[])
 
@@ -441,7 +440,7 @@ describe Document do
     end
 
     let :document do
-      Document.new 'test-type', "test", content: "some content", repo: repo
+      Document.new({content: "some content"}, repo: repo)
     end
 
     let :ref1 do
@@ -458,7 +457,7 @@ describe Document do
 
     describe "promoting" do
       it "should commit with parents from master and preview and update preview" do
-        expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+        expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
         expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
         expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref2)
@@ -483,7 +482,7 @@ describe Document do
       end
 
       it "should commit with parents from master and preview and create preview if it doesn't exist" do
-        expect(repo).to receive(:write).with("some content", :blob).and_return('abcdef')
+        expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
 
         expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
         expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(nil)
@@ -560,7 +559,7 @@ describe Document do
       end
 
       it "should check whether a draft was promoted to preview" do
-        doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
+        doc = Document.new(nil, revision: 'abcdefg', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
         allow(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref)
@@ -574,7 +573,7 @@ describe Document do
       end
 
       it "should check whether a draft was promoted to published" do
-        doc = Document.new('test-type', 'test', revision: 'abcdefg', repo: repo)
+        doc = Document.new(nil, revision: 'abcdefg', repo: repo)
 
         allow(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
         allow(repo.references).to receive(:[]).with('refs/heads/published').and_return(ref)

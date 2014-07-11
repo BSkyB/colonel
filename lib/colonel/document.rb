@@ -1,8 +1,9 @@
 
 module Colonel
-  # Public: A versioned document storage with publishing pipeline support. Documents are internally
+  # Public: A versioned structured document storage with publishing pipeline support. Documents are internally
   # stored as a single file in a separate git repository for each document. Each state in the publishing
-  # process is a separate branch.
+  # process is a separate branch. When saved, document serializes the content to JSON and saves it. Loading
+  # a content item automatically constructs the data structure from the JSON.
   #
   # Every save to a document goes in as a commit to a master branch representing a draft stage. The
   # master branch is never reset, all changes only go forward.
@@ -12,25 +13,21 @@ module Colonel
   class Document
     ROOT_REF = 'refs/tags/root'.freeze
 
-    attr_reader :name, :revision
-    attr_accessor :content
+    attr_reader :id, :revision, :content
 
     # Public: create a new document
     #
-    # type    - string type of the document
-    # name    - the name of the document, must be a valid filename. Will be generated randomly if not provided,
-    #           cannot contain whitespace.
-    # options - an options Hash es_client.swith extra attributes
-    #           :content - the new document's content (optional)
+    # content - Hash or an Array content of the document
+    # options - an options Hash with extra attributes
+    #           :type    - string type of the document
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
-    def initialize(type, name = nil, opts = {})
-      @name = name || SecureRandom.hex(16) # FIXME check that the content id isn't already used
-      raise ArgumentError, "name cannot contain whitespace" if @name.strip.empty?
+    def initialize(content, opts = {})
+      @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used
+      @content = Content.new(content || {})
 
-      @type = type
+      @type = opts[:type] || 'document'
       @repo = opts[:repo]
-      @content = opts[:content]
     end
 
     def type
@@ -76,9 +73,9 @@ module Colonel
       init_repository(repository, timestamp)
 
       parents = [repository.references[refs].target_id].compact
-      @revision = commit!(@content, parents, refs, author, message, timestamp)
+      @revision = commit!(content.to_json, parents, refs, author, message, timestamp)
 
-      index.register(name, type)
+      index.register(id, type)
 
       @revision
     end
@@ -109,7 +106,7 @@ module Colonel
       tree = rev_obj.tree
       file = repository.lookup(tree.first[:oid]).read_raw
 
-      @content = file.data
+      @content = Content.from_json(file.data)
       @revision = rev
     end
 
@@ -154,7 +151,6 @@ module Colonel
 
     # Publishing pipeline handling
 
-
     # Public: Promotes the latest revision in state `from` to state `to`. Creates a merge commit on
     # branch `to` with a `message` and `timestamp`
     #
@@ -174,7 +170,7 @@ module Colonel
       from_sha = from_ref.target_id
       to_sha = to_ref ? to_ref.target_id : root_commit_oid
 
-      commit!(@content, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
+      commit!(@content.to_json, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable
@@ -207,9 +203,9 @@ module Colonel
     # Internal: The Rugged repository object for the given document
     def repository
       unless Colonel.config.rugged_backend.nil?
-        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare, backend: Colonel.config.rugged_backend)
+        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, id), :bare, backend: Colonel.config.rugged_backend)
       else
-        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, @name), :bare)
+        @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, id), :bare)
       end
     end
 
@@ -221,24 +217,24 @@ module Colonel
     # Class methods
     class << self
 
-      # Public: Open the document specified by `name`, optionally at a revision `rev`
+      # Public: Open the document specified by `id`, optionally at a revision `rev`
       #
-      # name  - name of the document
+      # id  - id of the document
       # rev   - revision to load (optional)
       #
       # Returns a Document instance
-      def open(name, rev = nil)
+      def open(id, rev = nil)
         begin
           unless Colonel.config.rugged_backend.nil?
-            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, name), backend: Colonel.config.rugged_backend)
+            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, id), backend: Colonel.config.rugged_backend)
           else
-            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, name))
+            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, id))
           end
         rescue Rugged::OSError
           return nil
         end
 
-        doc = Document.new(nil, name, repo: repo)
+        doc = Document.new(nil, id: id, repo: repo)
         doc.load!(rev)
 
         doc
