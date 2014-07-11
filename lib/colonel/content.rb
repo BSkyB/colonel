@@ -1,10 +1,9 @@
-require 'ostruct'
 require 'json'
 
 module Colonel
 
-  # Public: Extends OpenStruct to dynamically convert saved hashes to structs and support JSON (de)serialization.
-  class Content < OpenStruct
+  # Public: Dynamically converts saved hashes to structs and support JSON (de)serialization.
+  class Content
     def initialize(opts = {})
       if opts.is_a?(Array)
         @list = opts.map { |v| wrap(v) }
@@ -13,7 +12,6 @@ module Colonel
         @table = {}
         for k,v in opts
           @table[k.to_sym] = wrap(v)
-          new_ostruct_member(k)
         end
       end
     end
@@ -24,7 +22,6 @@ module Colonel
       elsif opts.is_a?(Hash)
         for k,v in opts # merge hash
           @table[k.to_sym] = wrap(v)
-          new_ostruct_member(k)
         end
       end
     end
@@ -70,8 +67,12 @@ module Colonel
     def method_missing(meth, *args, &block)
       if @list && @list.respond_to?(meth)
         @list.send(meth, *args, &block)
-      elsif @table && @tbale.respond_to?(meth)
-        @list.send(meth, *args, &block)
+      elsif @table && @table.has_key?(meth.to_sym)
+        @table[meth]
+      elsif @table && @table.respond_to?(meth)
+        @table.send(meth, *args, &block)
+      elsif args.length < 1 && !block_given?
+        nil
       else
         super
       end
