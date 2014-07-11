@@ -16,4 +16,5 @@ test/version_tmp
 tmp
 .DS_Store
 
-storage
+/storage
+/test-storage

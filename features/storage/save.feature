@@ -22,5 +22,15 @@ Feature: Save & Load
   ```
 
   Scenario: Save a content item and get its id
+    When I create a content item
+    And I save it as "John Doe" with email "john@example.com"
+    Then the item should have an id I can use later
 
   Scenario: Find and open a content item by id
+    Given an existing content item stored as "test-id" with content:
+      | name | type |
+      | Test | text |
+    When I open content item using stored id "test-id"
+    Then I should get content:
+      | name | type |
+      | Test | text |
