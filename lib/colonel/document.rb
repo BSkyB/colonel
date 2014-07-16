@@ -11,9 +11,7 @@ module Colonel
   # A promotion to a following state is recorded as a merge commit from the original state baranch to
   # a new state branch. New state revision is therefore not the same revision as the original revision.
   class Document
-    ROOT_REF = 'refs/tags/root'.freeze
-
-    attr_reader :id, :revision
+    attr_reader :id
 
     # Public: create a new document
     #
@@ -22,12 +20,15 @@ module Colonel
     #           :type    - string type of the document
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
-    def initialize(content, opts = {})
+    def initialize(raw_content, opts = {})
       @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used
-
       @type = opts[:type] || 'document'
       @repo = opts[:repo]
-      @latest_revision = Revision.new(content)
+
+      if @repo
+      else
+        @content = Content.new(raw_content)
+      end
     end
 
     def type
@@ -69,48 +70,34 @@ module Colonel
     #
     # Returns the sha of the created revision
     def save_in!(state, author, message = '', timestamp = Time.now)
-      ref = "refs/head/#{state}"
+      ref = "refs/heads/#{state}"
       init_repository(repository, timestamp)
 
-      @latest_revision.author = author
-      @latest_revision.message = message
-      @latest_revision.timestamp = timestamp
-      @latest_revision.previous = revisions[state]
+      previous = revisions[state] || revisions.root_revision
+      revision = Revision.new(self, content, author, message, timestamp, previous)
 
-      @latest_revision.write!(repository, ref)
-
+      revision.write!(repository, ref)
       index.register(id, type)
 
-      @revision
+      revision
     end
 
+    def content
+      @content ||= revisions['master'].content
+    end
 
     def init_repository(repository, timestamp = Time.now)
-      return unless repository.empty?
-      rev = Revision.new(repository).save!
-      repository.references.create(ROOT_REF, rev.sha)
+      return if revisions.root_revision
+
+      # create the root revision
+      revision = Revision.new(self, "", { name: 'The Colonel', email: 'colonel@example.com' }, "First Commit", timestamp, nil)
+
+      oid = revision.write!(repository)
+      repository.references.create(RevisionCollection::ROOT_REF, oid)
     end
 
-    # Public: loads the revision specified by `rev`. Updates content and revision of the Document
-    #
-    # rev - the revision to load. Can be a sha or a state name (e.g. `published`).
-    #        Defaults to `master` (optional)
-    #
-    # Returns the sha of the loaded revision.
-    def load!(rev = nil)
-      rev ||= repository.head.target_id
-
-      begin
-        rev_obj = repository.lookup(rev)
-      rescue Rugged::InvalidError
-        rev = repository.references["refs/heads/#{rev}"].target_id
-        rev_obj = repository.lookup(rev)
-      end
-
-      tree = rev_obj.tree
-      file = repository.lookup(tree.first[:oid]).read_raw
-
-      @revision = rev
+    def revisions
+      @revisions ||= RevisionCollection.new(self)
     end
 
     # Public: List all the revisions.
@@ -237,10 +224,7 @@ module Colonel
           return nil
         end
 
-        doc = Document.new(nil, id: id, repo: repo)
-        doc.load!(rev)
-
-        doc
+        Document.new(nil, id: id, repo: repo)
       end
 
       # Internal: Document index to register the document with when saving to keep track of it
@@ -269,9 +253,6 @@ module Colonel
       return false
     end
 
-    def root_commit_oid
-      @root_commit_oid ||= repository.references[ROOT_REF].target_id
-    end
 
     def first_commit?(commit)
       commit.parents.map(&:oid).include?(root_commit_oid)

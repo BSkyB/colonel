@@ -16,9 +16,9 @@ Feature: Save & Load
   ```ruby
   doc = Document.open(doc_id)
 
-  doc.name.first # => 'John'
+  doc.content.name.first # => 'John'
 
-  doc.name.last # => 'Doe'
+  doc.content.name.last # => 'Doe'
   ```
 
   Scenario: Save a document and get its id

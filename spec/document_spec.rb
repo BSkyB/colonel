@@ -87,131 +87,90 @@ describe Document do
   end
 
   describe "saving to storage" do
-    let(:root_oid) { 'rootid12' }
-
-    let(:references) do
-      double(:references).tap do |references|
-        allow(references).to receive(:[]).with('refs/heads/master').and_return(head)
-      end
-    end
-
-    let :repo do
-      double(:repo).tap do |repo|
-        allow(repo).to receive(:references).and_return(references)
-      end
-    end
-
-    let :index do
-      Object.new
-    end
-
-    let :head do
-      Struct.new(:target_id).new(root_oid)
-    end
-
     let :document do
-      Document.new(content: "some content")
+      Document.new(nil).tap do |it|
+        allow(it).to receive(:repository).and_return(repository)
+        allow(it).to receive(:revisions).and_return(double(:revisions))
+      end
+    end
+
+    let :repository do
+      double(:repository).tap do |it|
+        allow(it).to receive(:references).and_return(double(:references))
+      end
     end
 
     let :time do
       Time.now
     end
 
-    let :mock_index do
-      index = Object.new
-      allow(index).to receive(:register).with(document.id, document.type).and_return(true)
-
-      index
+    let :revision do
+      double(:revision).tap do |it|
+        allow(it).to receive(:write!)
+      end
     end
 
-    before do
-      allow(document).to receive(:repository).and_return(repo)
-      allow(document).to receive(:index).and_return(mock_index)
+    let :previous_revision do
+      double(:previous_revision)
     end
 
-    it "should create a commit on first save without a commit message" do
-      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
-
-      expect(Rugged::Index).to receive(:new).and_return index
-      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
-
-      options = {
-        tree: 'foo',
-        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-        committer: {email: 'colonel@example.com', name: 'The Colonel', time: time },
-        message: '',
-        parents: [root_oid],
-        update_ref: 'refs/heads/master'
-      }
-
-      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
-
-      expect(document).to receive(:init_repository).with(repo, time)
-
-      expect(document.save!({ name: 'The Colonel', email: 'colonel@example.com' }, '', time)).to eq 'foo'
-      expect(document.revision).to eq 'foo'
+    let :head_ref do
+      double(:head_ref)
     end
 
-    it "should create a commit on first save with a commit message" do
-      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
-
-      expect(Rugged::Index).to receive(:new).and_return index
-      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
-
-      options = {
-        tree: 'foo',
-        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-        committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-        message: 'save from the colonel',
-        parents: [root_oid],
-        update_ref: 'refs/heads/master'
-      }
-
-      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
-
-      expect(document).to receive(:init_repository).with(repo, time)
-
-      expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' }, 'save from the colonel', time)).to eq 'foo'
-      expect(document.revision).to eq 'foo'
+    let :root_ref do
+      double(:root_ref).tap do |it|
+        allow(it).to receive(:target_id).and_return("root_id")
+      end
     end
 
-    it 'should create a tagged root commit' do
-      allow(repo).to receive(:empty?).and_return(true)
+    let :root_revision do
+      double(:root_revision).tap do |it|
+        allow(it).to receive(:id).and_return("root_id")
+        allow(it).to receive(:write!)
+      end
+    end
+
+    it 'should create a tagged root revision' do
+      allow(document.revisions).to receive(:root_revision).and_return(nil)
+      allow(document.revisions).to receive(:[]).with('master').and_return(nil)
+
+      allow(Revision).to receive(:new).and_return(revision)
 
       the_colonel = { name: 'The Colonel', email: 'colonel@example.com' }
 
-      expect(document).to receive(:commit!).with('', [], 'refs/heads/master', the_colonel, 'First Commit', time).ordered.and_return(root_oid)
-      expect(document).to receive(:commit!).with('{"content":"some content"}', [root_oid], 'refs/heads/master', the_colonel, 'Second Commit', time).ordered.once
-
-      expect(repo.references).to receive(:create).with('refs/tags/root', root_oid)
+      expect(Revision).to receive(:new).with(document, "", the_colonel, "First Commit", time, nil).and_return(root_revision)
+      expect(root_revision).to receive(:write!).and_return("foo")
+      expect(repository.references).to receive(:create).with('refs/tags/root', "foo")
 
       document.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'Second Commit', time)
     end
 
+    it "should create a commit on first save" do
+      allow(document.revisions).to receive(:root_revision).and_return(root_revision)
+      allow(document.revisions).to receive(:[]).with('master').and_return(nil)
+
+      allow(revision).to receive(:write!)
+
+      expect(Revision).to receive(:new).with(document, document.content, :author, "", time, root_revision).and_return(revision)
+
+      rev = document.save!(:author, "", time)
+
+      expect(rev).to eq(revision)
+    end
+
     it "should add a commit on subsequent saves" do
-      expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
+      allow(document.revisions).to receive(:root_revision).and_return(root_revision)
+      allow(document.revisions).to receive(:[]).with('master').and_return(previous_revision)
+      allow(document).to receive(:init_repository).with(repository, time)
 
-      expect(Rugged::Index).to receive(:new).and_return index
-      expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-      expect(index).to receive(:write_tree).with(repo).and_return 'foo'
-      expect(repo).to receive(:references).and_return(references)
+      allow(revision).to receive(:write!)
 
-      expect(document).to receive(:init_repository).with(repo, time)
+      expect(Revision).to receive(:new).with(document, document.content, :author, "", time, previous_revision).and_return(revision)
 
-      options = {
-        tree: 'foo',
-        author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-        committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-        message: 'save from the colonel',
-        parents: [root_oid],
-        update_ref: 'refs/heads/master'
-      }
+      rev = document.save!(:author, "", time)
 
-      expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
-
-      expect(document.save!({ email: 'colonel@example.com', name: 'The Colonel' },'save from the colonel', time)).to eq 'foo'
+      expect(rev).to eq(revision)
     end
   end
 
@@ -314,6 +273,7 @@ describe Document do
 
     it "should open the repository and get HEAD" do
       expect(Rugged::Repository).to receive(:bare).with("storage/test").and_return(repo)
+
       expect(repo).to receive(:head).and_return Struct.new(:target_id).new('abcdef')
       expect(repo).to receive(:lookup).with('abcdef').and_return(commit)
       expect(commit).to receive(:tree).and_return(tree)

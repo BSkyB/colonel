@@ -4,13 +4,13 @@ module Colonel
 
   # Public: Dynamically converts saved hashes to structs and support JSON (de)serialization.
   class Content
-    def initialize(opts = {})
-      if opts.is_a?(Array)
-        @list = opts.map { |v| wrap(v) }
+    def initialize(plain = {})
+      if plain.is_a?(Array)
+        @list = plain.map { |v| wrap(v) }
         @table = {}
-      elsif opts.is_a?(Hash)
+      elsif plain.is_a?(Hash)
         @table = {}
-        for k,v in opts
+        for k,v in plain
           @table[k.to_sym] = wrap(v)
         end
       end
@@ -75,8 +75,8 @@ module Colonel
     def method_missing(meth, *args, &block)
       if @list && @list.respond_to?(meth)
         @list.send(meth, *args, &block)
-      elsif meth =~ /=$/ && args.length == 1 && @table.has_key?(meth.to_sym)
-        set(meth, args[0])
+      elsif meth =~ /=$/ && args.length == 1
+        set(meth.to_s.chop, args[0])
       elsif @table && @table.has_key?(meth.to_sym)
         get(meth)
       elsif @table && @table.respond_to?(meth)

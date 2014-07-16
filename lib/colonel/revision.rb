@@ -1,42 +1,46 @@
 module Colonel
   class Revision
-    attr_reader :id, :content, :author, :message, :previous, :origin
+    attr_reader :content, :author, :message, :timestamp
 
-    def initialize(content, author, message, previous, origin = nil, id = nil)
-      @id = id
+    def initialize(document, content, author, message, timestamp, previous, origin = nil, commit = nil)
+      @document = document
+      @commit = commit
+
       @content = content
       @author = author
       @message = message
+      @timestamp = timestamp
       @previous = previous
       @origin = origin
     end
 
-    def content=(val)
-      readonly_error unless @content
-      @content = val
+    def id
+      @commit.oid unless @commit.nil?
     end
 
-    def author=(val)
-      readonly_error unless @author
-      @author = val
+    def previous
+      return nil if @previous.nil?
+
+      @previous = document.revisions[@previous] if @previous.is_a?(String)
+
+      @previous
     end
 
-    def message=(val)
-      readonly_error unless @message
-      @message = val
+    def origin
+      return nil if @origin.nil?
     end
 
-    def previous=(val)
-      readonly_error unless @previous
-      @previous = val
+    def content
+      return @content if @content.is_a?(Content)
+
+      # lazy load content
+      tree = @commit.tree
+      file = @document.repository.lookup(tree.first[:oid]).read_raw
+
+      @content = Content.from_json(file.data)
     end
 
-    def origin=(val)
-      readonly_error unless @origin
-      @origin = val
-    end
-
-    def write!(repository, update_ref)
+    def write!(repository, update_ref = nil)
       return unless @id.nil?
       oid = repository.write(@content.to_json, :blob)
 
@@ -44,22 +48,28 @@ module Colonel
       index.add(path: 'content', oid: oid, mode: 0100644)
       tree = index.write_tree(repository)
 
+      parents = [previous, origin].compact
+      parents = parents.map(&:id).compact unless parents.empty?
+
       commit_options = {
         tree: tree,
         author: author,
         committer: author,
         message: message,
-        parents: [previous.id, origin.id].compact,
-        update_ref: update_ref
+        parents: parents,
       }
+      commit_options[:update_ref] = update_ref if update_ref
 
       @id = Rugged::Commit.create(repository, commit_options)
     end
 
-    private
+    class << self
+      def from_commit(document, commit)
+        previous = commit.parents[0]
+        origin = commit.parents[1]
 
-    def readonly_error
-      raise RuntimeError, 'Revision is immutable.'
+        new(document, nil, commit.author, commit.message, commit.time, previous, origin, commit)
+      end
     end
   end
 end
