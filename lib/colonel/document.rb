@@ -13,7 +13,7 @@ module Colonel
   class Document
     ROOT_REF = 'refs/tags/root'.freeze
 
-    attr_reader :id, :revision, :content
+    attr_reader :id, :revision
 
     # Public: create a new document
     #
@@ -24,10 +24,10 @@ module Colonel
     #                      Not meant to be used directly
     def initialize(content, opts = {})
       @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used
-      @content = Content.new(content || {})
 
       @type = opts[:type] || 'document'
       @repo = opts[:repo]
+      @latest_revision = Revision.new(content)
     end
 
     def type
@@ -69,11 +69,15 @@ module Colonel
     #
     # Returns the sha of the created revision
     def save_in!(state, author, message = '', timestamp = Time.now)
-      refs = "refs/heads/#{state}"
+      ref = "refs/head/#{state}"
       init_repository(repository, timestamp)
 
-      parents = [repository.references[refs].target_id].compact
-      @revision = commit!(content.to_json, parents, refs, author, message, timestamp)
+      @latest_revision.author = author
+      @latest_revision.message = message
+      @latest_revision.timestamp = timestamp
+      @latest_revision.previous = revisions[state]
+
+      @latest_revision.write!(repository, ref)
 
       index.register(id, type)
 
@@ -83,8 +87,8 @@ module Colonel
 
     def init_repository(repository, timestamp = Time.now)
       return unless repository.empty?
-      revision = commit!('', [], 'refs/heads/master', { name: 'The Colonel', email: 'colonel@example.com' }, 'First Commit', timestamp)
-      repository.references.create(ROOT_REF, revision)
+      rev = Revision.new(repository).save!
+      repository.references.create(ROOT_REF, rev.sha)
     end
 
     # Public: loads the revision specified by `rev`. Updates content and revision of the Document
@@ -106,7 +110,6 @@ module Colonel
       tree = rev_obj.tree
       file = repository.lookup(tree.first[:oid]).read_raw
 
-      @content = Content.from_json(file.data)
       @revision = rev
     end
 
@@ -170,7 +173,7 @@ module Colonel
       from_sha = from_ref.target_id
       to_sha = to_ref ? to_ref.target_id : root_commit_oid
 
-      commit!(@content.to_json, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
+      Revision.commit!(repository, @content.to_json, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable
@@ -290,38 +293,6 @@ module Colonel
 
     def on_master?(commit)
       commit.parents.length < 2
-    end
-
-    # Internal: Commit contents of the document with a given parent commits, reference to update
-    # message and timestamp.
-    #
-    # content   - the document content, commited as a file named 'content' in the root of the repository
-    # parents   - array of parent commit shas
-    # author    - a Hash containing author attributes
-    #             :name - the name of the author
-    #             :email - the email of the author
-    # message   - the commit message to store
-    # timestamp - time of the commit
-    #
-    # Returns the sha of the new commit
-    def commit!(content, parents, ref, author, message = '', timestamp = Time.Now)
-      oid = repository.write(content, :blob)
-
-      index = Rugged::Index.new
-      index.add(path: 'content', oid: oid, mode: 0100644)
-      tree = index.write_tree(repository)
-      author.merge! time: timestamp
-
-      options = {
-        tree: tree,
-        author: author,
-        committer: author,
-        message: message,
-        parents: parents,
-        update_ref: ref
-      }
-
-      @revision = Rugged::Commit.create(repository, options)
     end
   end
 end

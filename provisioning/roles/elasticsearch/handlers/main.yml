@@ -1,0 +1,5 @@
+%YAML 1.2
+---
+- name: restart elasticsearch
+  service: name=elasticsearch state=restarted
+  sudo: yes

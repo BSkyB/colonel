@@ -3,6 +3,7 @@ require 'elasticsearch'
 require "colonel/version"
 
 require "colonel/document"
+require "colonel/revision"
 require "colonel/document_index"
 require "colonel/content"
 require "colonel/content_item"

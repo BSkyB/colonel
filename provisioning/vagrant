@@ -1,0 +1,7 @@
+# groups
+[devmachines:children]
+vagrant-devmachines
+
+# inventory + role
+[vagrant-devmachines]
+192.168.60.100 user=vagrant

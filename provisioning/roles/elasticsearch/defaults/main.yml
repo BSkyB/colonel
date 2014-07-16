@@ -1,0 +1,9 @@
+%YAML 1.2
+---
+elasticsearch:
+  version: 1.0.0
+  environment:
+    - variable: ES_MIN_MEM
+      value: 750m
+    - variable: ES_MAX_MEM
+      value: 1g

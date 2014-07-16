@@ -1,0 +1,14 @@
+%YAML 1.2
+---
+- name: install global dependencies
+  shell: bash -lc "gem install {{item.name}} --no-ri --no-rdoc"
+  with_items:
+    - name: bundler
+    - name: rspec
+    - name: cucumber
+  tags: dependencies
+
+- name: install dependencies
+  shell: cd /vagrant; bash -lc "bundle install"
+  sudo: no
+  tags: dependencies
