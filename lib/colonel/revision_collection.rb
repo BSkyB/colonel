@@ -7,10 +7,12 @@ class RevisionCollection
 
   def [](rev)
     begin
+      return nil if rev == root_commit_oid
+
       commit = @document.repository.lookup(rev)
     rescue Rugged::InvalidError
       ref = @document.repository.references["refs/heads/#{rev}"]
-      return nil unless ref
+      return nil unless ref && ref.target_id != root_commit_oid
 
       commit = @document.repository.lookup(ref.target_id)
     end
@@ -21,7 +23,8 @@ class RevisionCollection
   def root_revision
     return nil unless root_commit_oid
 
-    self[root_commit_oid]
+    commit = @document.repository.lookup(root_commit_oid)
+    Revision.from_commit(@document, commit)
   end
 
   private

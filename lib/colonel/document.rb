@@ -85,6 +85,14 @@ module Colonel
       @content ||= revisions['master'].content
     end
 
+    # Public: Replace the content with another.
+    # content  - Hash or Array with content (see Content#new)
+    #
+    # Returns a new instance of Content
+    def content=(new_content)
+      @content = Content.new(new_content)
+    end
+
     def init_repository(repository, timestamp = Time.now)
       return if revisions.root_revision
 
@@ -106,39 +114,18 @@ module Colonel
     #
     # Returns an array of revision hashes if no block was given, otherwise yields every revision
     # to the block and returns nothing.
-    def history(state = nil, &block)
-      rev = if state
-        ref = repository.references["refs/heads/#{state}"]
-        rev = ref.target_id if ref
-      else
-        revision
+    def history(id_or_state = 'master', &block)
+      revision = revisions[id_or_state]
+      return to_enum(:history, id_or_state) unless block_given?
+
+      while(revision)
+        yield revision
+
+        revision = revision.previous
       end
-
-      results = []
-      return results unless rev
-
-      commit = repository.lookup(rev)
-
-      while(commit)
-        results << {
-          rev: commit.oid,
-          message: commit.message,
-          author: commit.author,
-          time: commit.time,
-          type: [:orphan, :save, :promotion][commit.parents.count],
-          parents: parents_hash(commit)
-        }
-        yield results.last if block_given?
-
-        break if first_commit?(commit)
-
-        commit = commit.parents.first
-      end
-
-      results unless block_given?
     end
 
-    # Publishing pipeline handling
+    # Workflow handling
 
     # Public: Promotes the latest revision in state `from` to state `to`. Creates a merge commit on
     # branch `to` with a `message` and `timestamp`
