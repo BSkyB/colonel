@@ -25,8 +25,7 @@ module Colonel
       @type = opts[:type] || 'document'
       @repo = opts[:repo]
 
-      if @repo
-      else
+      unless @repo
         @content = Content.new(raw_content)
       end
     end

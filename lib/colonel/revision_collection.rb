@@ -19,12 +19,19 @@ class RevisionCollection
   end
 
   def root_revision
+    return nil unless root_commit_oid
+
     self[root_commit_oid]
   end
 
   private
 
   def root_commit_oid
-    @root_commit_oid ||= @document.repository.references[ROOT_REF].target_id
+    return @root_commit_oid if @root_commit_oid
+
+    ref = @document.repository.references[ROOT_REF]
+    @root_commit_oid = ref.target_id if ref
+
+    @root_commit_oid
   end
 end
