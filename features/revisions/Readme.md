@@ -21,9 +21,9 @@ created for you. When you call `save!` that revision gets saved.
 It's possible to iterate through the revision history
 
 ```ruby
-item.history # => array of revisions
+item.history # => revision iterator
 
-item.history.each do |revision| # lazy iteration
+item.history do |revision| # => block form
   revision # => a revision
 end
 ```
