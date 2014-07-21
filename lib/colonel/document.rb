@@ -240,25 +240,6 @@ module Colonel
       return false
     end
 
-
-    def first_commit?(commit)
-      commit.parents.map(&:oid).include?(root_commit_oid)
-    end
-
-    def parents_hash(commit)
-      first, second = commit.parents.map(&:oid)
-
-      if second && first != root_commit_oid
-        {previous: first, source: second}
-      elsif second && first == root_commit_oid
-        {source: second}
-      elsif second.nil? && first != root_commit_oid
-        {previous: first}
-      else # i.e. second.nil? && firt == root_commit_oid
-        {}
-      end
-    end
-
     def on_master?(commit)
       commit.parents.length < 2
     end
