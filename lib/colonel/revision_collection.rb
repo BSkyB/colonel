@@ -13,7 +13,7 @@ class RevisionCollection
     ref = @document.repository.references["refs/heads/#{rev}"]
     return nil unless ref && ref.target_id != root_commit_oid
 
-    Revision.from_commit(@document, ref.target_id)
+    Revision.from_commit(@document, ref.target_id, rev)
   end
 
   def root_revision

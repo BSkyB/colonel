@@ -1,8 +1,8 @@
 module Colonel
   class Revision
-    attr_reader
+    attr_reader :state
 
-    def initialize(document, content, author, message, timestamp, previous, origin = nil, commit_or_id = nil)
+    def initialize(document, content, author, message, timestamp, previous, origin = nil, state = nil, commit_or_id = nil)
       @document = document
 
       @id = commit_or_id if commit_or_id.is_a?(String)
@@ -13,7 +13,9 @@ module Colonel
       @message = message
       @timestamp = timestamp
 
-      @previous = previous.is_a?(String) ? Revision.from_commit(@document, previous) : previous
+      @state = state
+
+      @previous = previous.is_a?(String) ? Revision.from_commit(@document, previous, state) : previous
       @origin = origin.is_a?(String) ? Revision.from_commit(@document, origin) : origin
     end
 
@@ -41,6 +43,13 @@ module Colonel
       @timestamp = commit.timestamp unless commit.nil?
     end
 
+    def type
+      return :promotion if origin
+      return :save if previous
+
+      :orphan
+    end
+
     def content
       return @content if @content.is_a?(Content)
 
@@ -54,7 +63,7 @@ module Colonel
     def previous
       return @previous if @previous
 
-      @previous = Revision.from_commit(@document, commit.parent_ids[0]) unless commit.nil?
+      @previous = Revision.from_commit(@document, commit.parent_ids[0], state) unless commit.nil? || commit.parent_ids[0].nil?
       return nil if @previous && @previous.root?
 
       @previous
@@ -63,14 +72,10 @@ module Colonel
     def origin
       return @origin if @origin
 
-      @origin = Revision.from_commit(@document, commit.parent_ids[1]) unless commit.nil?
+      @origin = Revision.from_commit(@document, commit.parent_ids[1], state) unless commit.nil? || commit.parent_ids[1].nil?
       return nil if @origin && @origin.root?
 
       @origin
-    end
-
-    def state
-      # state or nil "don't know"
     end
 
     def root?
@@ -100,9 +105,13 @@ module Colonel
       @id = Rugged::Commit.create(repository, commit_options)
     end
 
+    def inspect
+      "<Revision:#{id}>"
+    end
+
     class << self
-      def from_commit(document, commit)
-        new(document, nil, nil, nil, nil, nil, nil, commit)
+      def from_commit(document, commit, state = nil)
+        new(document, nil, nil, nil, nil, nil, nil, state, commit)
       end
     end
 
