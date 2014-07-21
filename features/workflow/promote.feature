@@ -31,5 +31,33 @@ Feature: Promoting to a new state
       | This is just a test |
 
   Scenario: Saving over a promoted revision
+    Given an existing document with content:
+      | text                |
+      | This is just a test |
+    When I promote "master" to "published"
+    And I change the content to:
+      | text                      |
+      | This is just another test |
+    And I save the document
+    Then the "published" revision should have content:
+      | text                |
+      | This is just a test |
+    And the "master" revision should have content:
+      | text                      |
+      | This is just another test |
 
   Scenario: Saving into a different state branch
+    Given an existing document with content:
+      | text                |
+      | This is just a test |
+    When I promote "master" to "archived"
+    And I change the content to:
+      | text                      |
+      | This is just another test |
+    And I save the changes to "archived"
+    Then the "master" revision should have content:
+      | text                |
+      | This is just a test |
+    And the "archived" revision should have content:
+      | text                      |
+      | This is just another test |

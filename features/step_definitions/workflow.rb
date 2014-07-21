@@ -12,3 +12,7 @@ Then(/^the "(.*?)" revision should have content:$/) do |state, table|
     expect(state_rev.content.get(key)).to eq(value)
   end
 end
+
+When(/^I save the changes to "(.*?)"$/) do |state|
+  @document.save_in!(state, {name: 'Test', email: 'test@example.com'})
+end
