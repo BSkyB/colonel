@@ -10,20 +10,20 @@ When(/^I change the content to:$/) do |table|
 end
 
 When(/^I save the document$/) do
-  @second_revision = @document.save!({ name: 'Test', email: 'test@example.com' })
+  @new_revision = @document.save!({ name: 'Test', email: 'test@example.com' })
 end
 
 Then(/^I should get a new revision with content:$/) do |table|
-  expect(@second_revision).to be_a(Revision)
-  expect(@first_revision.id).not_to eq(@second_revision.id)
+  expect(@new_revision).to be_a(Revision)
+  expect(@first_revision.id).not_to eq(@new_revision.id)
 
   table.hashes.first.each do |key, value|
-    expect(@second_revision.content.get(key)).to eq(value)
+    expect(@new_revision.content.get(key)).to eq(value)
   end
 end
 
 Then(/^the previous revision should have content:$/) do |table|
-  previous = @second_revision.previous
+  previous = @new_revision.previous
 
   expect(previous).to be_a(Revision)
   expect(previous.id).to eq(@first_revision.id)

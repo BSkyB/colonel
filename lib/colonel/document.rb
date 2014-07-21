@@ -41,6 +41,16 @@ module Colonel
 
     # Storage
 
+    def init_repository(repository, timestamp = Time.now)
+      return if revisions.root_revision
+
+      # create the root revision
+      revision = Revision.new(self, "", { name: 'The Colonel', email: 'colonel@example.com' }, "First Commit", timestamp, nil)
+
+      oid = revision.write!(repository)
+      repository.references.create(RevisionCollection::ROOT_REF, oid)
+    end
+
     # Public: save the document as a new revision. Commits the content to the top of `master`, updates `master`
     # and updates the Document's revision to the newly created commit.
     #
@@ -93,16 +103,6 @@ module Colonel
       @content = Content.new(new_content)
     end
 
-    def init_repository(repository, timestamp = Time.now)
-      return if revisions.root_revision
-
-      # create the root revision
-      revision = Revision.new(self, "", { name: 'The Colonel', email: 'colonel@example.com' }, "First Commit", timestamp, nil)
-
-      oid = revision.write!(repository)
-      repository.references.create(RevisionCollection::ROOT_REF, oid)
-    end
-
     def revisions
       @revisions ||= RevisionCollection.new(self)
     end
@@ -140,13 +140,14 @@ module Colonel
     #
     # Returns the sha of the created revision.
     def promote!(from, to, author, message = '', timestamp = Time.now)
-      from_ref = repository.references["refs/heads/#{from}"]
-      to_ref = repository.references["refs/heads/#{to}"]
+      ref = "refs/heads/#{to}"
+      origin = revisions[from]
+      previous = revisions[to] || revisions.root_revision
 
-      from_sha = from_ref.target_id
-      to_sha = to_ref ? to_ref.target_id : root_commit_oid
+      revision = Revision.new(self, origin.content, author, message, timestamp, previous, origin)
+      oid = revision.write!(repository, ref)
 
-      Revision.commit!(repository, @content.to_json, [to_sha, from_sha], "refs/heads/#{to}", author, message, timestamp)
+      revision
     end
 
     # Public: Was this revision promoted to a given state? That is, is this commit reachable

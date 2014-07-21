@@ -347,15 +347,17 @@ describe Document do
     end
 
     let :document do
-      Document.new({content: "some content"}, repo: repo)
+      Document.new({content: "some content"}, repo: repo).tap do |it|
+        allow(it).to receive(:revisions).and_return(double(:revisions))
+      end
     end
 
-    let :ref1 do
-      Struct.new(:target_id).new('xyz1')
+    let :content do
+      Content.new(foo: "bar")
     end
 
-    let :ref2 do
-      Struct.new(:target_id).new('xyz2')
+    let :author do
+      {name: 'Test', email: 'test@example.com'}
     end
 
     let :time do
@@ -363,59 +365,33 @@ describe Document do
     end
 
     describe "promoting" do
-      it "should commit with parents from master and preview and update preview" do
-        pending
+      it "promotes to a new state" do
+        new_revision = double(:revision)
+        master_rev = double(:master_revision).tap { |it| allow(it).to receive(:content).and_return(content) }
+        root_rev = double(:root_revision)
 
-        expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
+        allow(document.revisions).to receive(:[]).with("master").and_return(master_rev)
+        allow(document.revisions).to receive(:[]).with("published").and_return(nil)
+        allow(document.revisions).to receive(:root_revision).and_return(root_rev)
 
-        expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
-        expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(ref2)
+        expect(Revision).to receive(:new).with(document, master_rev.content, author, "", time, root_rev, master_rev).and_return(new_revision)
+        expect(new_revision).to receive(:write!).with(document.repository, "refs/heads/published")
 
-        expect(Rugged::Index).to receive(:new).and_return index
-
-        expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        expect(index).to receive(:write_tree).with(repo).and_return 'foo'
-
-        options = {
-          tree: 'foo',
-          author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-          committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-          message: 'preview from the colonel',
-          parents: ['xyz2', 'xyz1'],
-          update_ref: 'refs/heads/preview'
-        }
-
-        expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
-
-        expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
+        revision = document.promote!('master', 'published', author, "", time)
       end
 
-      it "should commit with parents from master and preview and create preview if it doesn't exist" do
-        pending
+      it "promotes to an existing state" do
+        new_revision = double(:revision)
+        master_rev = double(:master_revision).tap { |it| allow(it).to receive(:content).and_return(content) }
+        published_rev = double(:published_revision)
 
-        expect(repo).to receive(:write).with('{"content":"some content"}', :blob).and_return('abcdef')
+        allow(document.revisions).to receive(:[]).with("master").and_return(master_rev)
+        allow(document.revisions).to receive(:[]).with("published").and_return(published_rev)
 
-        expect(repo.references).to receive(:[]).with('refs/heads/master').and_return(ref1)
-        expect(repo.references).to receive(:[]).with('refs/heads/preview').and_return(nil)
-        expect(repo.references).to receive(:[]).with('refs/tags/root').and_return(root_ref)
+        expect(Revision).to receive(:new).with(document, master_rev.content, author, "", time, published_rev, master_rev).and_return(new_revision)
+        expect(new_revision).to receive(:write!).with(document.repository, "refs/heads/published")
 
-        expect(Rugged::Index).to receive(:new).and_return index
-
-        expect(index).to receive(:add).with(path: "content", oid: 'abcdef', mode: 0100644)
-        expect(index).to receive(:write_tree).with(repo).and_return 'foo'
-
-        options = {
-          tree: 'foo',
-          author: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-          committer: { email: 'colonel@example.com', name: 'The Colonel', time: time },
-          message: 'preview from the colonel',
-          parents: [root_oid, 'xyz1'],
-          update_ref: 'refs/heads/preview'
-        }
-
-        expect(Rugged::Commit).to receive(:create).with(repo, options).and_return 'foo'
-
-        expect(document.promote!('master', 'preview', { name: 'The Colonel', email: 'colonel@example.com' }, 'preview from the colonel', time)).to eq 'foo'
+        revision = document.promote!('master', 'published', author, "", time)
       end
     end
 

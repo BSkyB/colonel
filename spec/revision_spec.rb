@@ -3,7 +3,9 @@ require 'spec_helper'
 describe Revision do
   let(:time) { Time.now }
 
-  let(:document) { double(:document) }
+  let(:document) do
+    double(:document).tap { |it| allow(it).to receive(:revisions).and_return(double(:revisions)) }
+  end
 
   let :revision do
     Revision.new(double(:document), Conent.new({foo: "bar"}), {name: "Author", email: "me@example.com"}, "Saved", time)
@@ -20,6 +22,8 @@ describe Revision do
 
   it "takes a commit and can use its id" do
     commit = double(:commit)
+
+    allow(commit).to receive(:is_a?).with(String).and_return(false)
     allow(commit).to receive(:is_a?).with(Rugged::Commit).and_return(true)
 
     revision = Revision.new(document, Content.new(nil), "author", "message", time, "abcdef", nil, commit)
@@ -29,34 +33,48 @@ describe Revision do
     expect(revision.id).to eq("id")
   end
 
-  it "looks up a commit from a sha1 passed in" do
-    commit = double(:commit).tap do |it|
-      allow(it).to receive(:is_a?).with(Rugged::Commit).and_return(true)
-      allow(it).to receive(:oid).and_return("the_id")
+  it "can check it's a root revision" do
+    revision = Revision.new(document, Content.new(nil), "author", "message", time, nil)
+    root_revision = double(:root_revision).tap do |it|
+      allow(it).to receive(:id).and_return("root_id")
     end
 
-    repo = double(:repository)
+    allow(revision).to receive(:id).and_return("root_id")
+    allow(document.revisions).to receive(:root_revision).and_return(root_revision)
 
-    revision = Revision.new(document, nil, "author", "message", time, "abcdef", nil, "abcd")
-
-    expect(document).to receive(:repository).and_return(repo)
-    expect(repo).to receive(:lookup).with("abcd").and_return(commit)
-
-    expect(revision.id).to eq("the_id")
+    expect(revision.root?).to eq(true)
   end
 
-  # read / write are tested in the cucumber features (too much mocking involved...)
+  describe "lazy loading" do
+    it "can create a revision from a sha1 without touching the repository" do
+      sha = "abcdef"
 
-  it "can create a revision from a commit" do
-    commit = double(:commit).tap do |it|
-      allow(it).to receive(:author).and_return(:author)
-      allow(it).to receive(:message).and_return(:message)
-      allow(it).to receive(:time).and_return(:time)
-      allow(it).to receive(:parent_ids).and_return([:id_0, :id_1])
+      expect(document).not_to receive(:repository)
+
+      rev = Revision.from_commit(document, sha)
+      expect(rev.id).to eq("abcdef")
     end
 
-    expect(Revision).to receive(:new).with(document, nil, :author, :message, :time, :id_0, :id_1, commit)
+    it "can create a revision from just a sha1 and load the commit for details" do
+      sha = "abcdef"
+      repo = double(:repository)
 
-    Revision.from_commit(document, commit)
+      commit = double(:commit).tap do |it|
+        allow(it).to receive(:message).and_return("hi")
+        allow(it).to receive(:oid).and_return("xyz")
+      end
+
+      expect(document).to receive(:repository).and_return(repo)
+      expect(repo).to receive(:lookup).with("abcdef").and_return(commit)
+
+      rev = Revision.from_commit(document, sha)
+
+      expect(rev.id).to eq("abcdef") # id from the passed string
+
+      expect(rev.message).to eq("hi")
+      expect(rev.id).to eq("xyz") # id from the loaded commit. In reality the two ids will be the same
+    end
+
+    # it "loads content from the commit when necessary" - tested through cucumber
   end
 end

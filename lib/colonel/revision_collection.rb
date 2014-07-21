@@ -1,30 +1,26 @@
 class RevisionCollection
   ROOT_REF = 'refs/tags/root'.freeze
+  SHA1 = /^[0-9a-f]{40}$/
 
   def initialize(document)
     @document = document
   end
 
   def [](rev)
-    begin
-      return nil if rev == root_commit_oid
+    return nil if rev == root_commit_oid
+    return Revision.from_commit(@document, rev) if rev =~ SHA1
 
-      commit = @document.repository.lookup(rev)
-    rescue Rugged::InvalidError
-      ref = @document.repository.references["refs/heads/#{rev}"]
-      return nil unless ref && ref.target_id != root_commit_oid
+    ref = @document.repository.references["refs/heads/#{rev}"]
+    return nil unless ref && ref.target_id != root_commit_oid
 
-      commit = @document.repository.lookup(ref.target_id)
-    end
-
-    Revision.from_commit(@document, commit)
+    Revision.from_commit(@document, ref.target_id)
   end
 
   def root_revision
+    return @root_revision if @root_revision
     return nil unless root_commit_oid
 
-    commit = @document.repository.lookup(root_commit_oid)
-    Revision.from_commit(@document, commit)
+    @root_revision = Revision.from_commit(@document, root_commit_oid)
   end
 
   private

@@ -1,37 +1,44 @@
 module Colonel
   class Revision
-    attr_reader :content, :author, :message, :timestamp
+    attr_reader
 
     def initialize(document, content, author, message, timestamp, previous, origin = nil, commit_or_id = nil)
       @document = document
-      @commit = commit_or_id
+
+      @id = commit_or_id if commit_or_id.is_a?(String)
+      @commit = commit_or_id if commit_or_id.is_a?(Rugged::Commit)
 
       @content = content
       @author = author
       @message = message
       @timestamp = timestamp
-      @previous = previous
-      @origin = origin
+
+      @previous = previous.is_a?(String) ? Revision.from_commit(@document, previous) : previous
+      @origin = origin.is_a?(String) ? Revision.from_commit(@document, origin) : origin
     end
 
     def id
-      commit.oid unless commit.nil?
+      return @id if @id
+
+      @id = commit.oid unless commit.nil?
     end
 
-    def previous
-      return nil if @previous.nil?
+    def author
+      return @author if @author
 
-      @previous = @document.revisions[@previous] if @previous.is_a?(String)
-
-      @previous
+      @author = commit.author unless commit.nil?
     end
 
-    def state
-      # state or nil "don't know"
+    def message
+      return @message if @message
+
+      @message = commit.message unless commit.nil?
     end
 
-    def origin
-      return nil if @origin.nil?
+    def timestamp
+      return @timestamp if @timestamp
+
+      @timestamp = commit.timestamp unless commit.nil?
     end
 
     def content
@@ -42,6 +49,32 @@ module Colonel
       file = @document.repository.lookup(tree.first[:oid]).read_raw
 
       @content = Content.from_json(file.data)
+    end
+
+    def previous
+      return @previous if @previous
+
+      @previous = Revision.from_commit(@document, commit.parent_ids[0]) unless commit.nil?
+      return nil if @previous && @previous.root?
+
+      @previous
+    end
+
+    def origin
+      return @origin if @origin
+
+      @origin = Revision.from_commit(@document, commit.parent_ids[1]) unless commit.nil?
+      return nil if @origin && @origin.root?
+
+      @origin
+    end
+
+    def state
+      # state or nil "don't know"
+    end
+
+    def root?
+      id == @document.revisions.root_revision.id
     end
 
     def write!(repository, update_ref = nil)
@@ -64,24 +97,28 @@ module Colonel
       }
       commit_options[:update_ref] = update_ref if update_ref
 
-      @commit = Rugged::Commit.create(repository, commit_options)
+      @id = Rugged::Commit.create(repository, commit_options)
     end
 
     class << self
       def from_commit(document, commit)
-        previous = commit.parent_ids[0]
-        origin = commit.parent_ids[1]
-
-        new(document, nil, commit.author, commit.message, commit.time, previous, origin, commit)
+        new(document, nil, nil, nil, nil, nil, nil, commit)
       end
     end
 
     private
 
     def commit
-      return @commit if @commit.is_a?(Rugged::Commit)
+      return @commit if @commit
 
-      @commit = @document.repository.lookup(@commit)
+      if @id
+        @commit = @document.repository.lookup(@id)
+        raise ArgumentError, "Revision not found #{@id}." unless @commit
+
+        @id = @commit.oid
+      end
+
+      @commit
     end
   end
 end
