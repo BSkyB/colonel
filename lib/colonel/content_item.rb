@@ -1,5 +1,3 @@
-require 'ostruct'
-
 module Colonel
   # DEPRECATED
   # Public: Structured content storage. Backed by `Document` for versioning and publishing states support.
@@ -58,48 +56,6 @@ module Colonel
       @id = @document.name
     end
 
-    # Public: bulk update the content. Works the same way as the contructor.
-    def update(content)
-      @content.update(content)
-    end
-
-    # Public: Delete a field from the content, if it's a hash. See OpenStruct documentation for details.
-    def delete_field(field)
-      @content.delete_field(field)
-    end
-
-    # Public: Save the content item and update the search index
-    #
-    # author    - a Hash containing author attributes
-    #             :name - the name of the author
-    #             :email - the email of the author
-    # message   - message of the save (optional)
-    # timestamp - time of the save (optional), Defaults to Time.now
-    #
-    # Returns the sha of the newly created revision
-    def save!(author, message = '', timestamp = Time.now)
-      save_in!('master', author, message, timestamp)
-    end
-
-    # Public: Save the content item and update the search index
-    #
-    # state     - the name of the state in which to save changes
-    # author    - a Hash containing author attributes
-    #             :name - the name of the author
-    #             :email - the email of the author
-    # message   - message of the save (optional)
-    # timestamp - time of the save (optional), Defaults to Time.now
-    #
-    # Returns the sha of the newly created revision
-    def save_in!(state, author, message = '', timestamp = Time.now)
-      document.content = @content.to_json
-      sha = document.save_in!(state, author, message, timestamp)
-
-      index!(state: state, updated_at: timestamp, revision: sha, event: {name: :save, to: state})
-
-      sha
-    end
-
     # Public: Index the content in elasticsearch. Creates a document for the revision and updates the document
     # for the item, to enable both search of the lates and all the revisions.
     # Document ids have a format docid-state and docid-revisionsha.
@@ -116,55 +72,6 @@ module Colonel
     def index!(opts = {})
       commands = index_commands(opts)
       self.class.es_client.bulk body: commands
-    end
-
-    # Public: Load the content item and instantiate the content.
-    #
-    # rev - state name or sha of the revision to load.
-    def load!(rev)
-      rev = document.load!(rev)
-      @content = Content.from_json(document.content)
-
-      rev
-    end
-
-    # Surfacing document API
-
-    # Public: Get the content item's current revision from the document. Delegates to the document.
-    def revision
-      document.revision
-    end
-
-    # Public: Get the content item's history. Delegates to the Document
-    def history(state = nil, &block)
-      document.history(state, &block)
-    end
-
-    # Public: Promote the document to a new state and index the change. Other than indexing, works the same way
-    # as in the Document class.
-    def promote!(from, to, author, message = '', timestamp = Time.now)
-      sha = document.promote!(from, to, author, message, timestamp)
-
-      index!(state: to, revision: sha, updated_at: timestamp, event: {name: :promotion, to: to})
-
-      sha
-    end
-
-    # Public: Has a given revision (default to current) been promoted to a given state? Delegates to the document.
-    def has_been_promoted?(to, rev = nil)
-      document.has_been_promoted?(to, rev)
-    end
-
-    # Surfacing content
-
-    # Public: Array like content reader
-    def [](i)
-      @content[i]
-    end
-
-    # Public: Array like content writer
-    def []=(i, val)
-      @content[i] = value
     end
 
     # Internal: build the index commands for `index!` without running them against es_client
@@ -204,17 +111,6 @@ module Colonel
       cmds
     end
 
-    # Internal: Forward relevant methods to the content to allow more natural API
-    def method_missing(meth, *args)
-      if args.length < 1
-        @content.send meth
-      elsif meth.to_s.match(/=$/) && args.length == 1
-        @content.send meth, *args
-      else
-        super
-      end
-    end
-
     class << self
       # Public: Open a content item by it's id and optionally revision. Delegates to the document.
       def open(id, rev = nil)
@@ -224,38 +120,7 @@ module Colonel
         new(nil, document: doc)
       end
 
-      # Public: List all the content items. Supports filtering by state, sorting and pagination.
-      #
-      # opts  - options hash
-      #         :state  - state to filter to
-      #         :latest - denotes to filter only on latest state of content items.
-      #         :sort   - sort specification for ES. ex.: {updated_at: 'desc'} or [{...}, {...}].
-      #                  Wrapped in an array automatically.
-      #         :from   - how many results to skip
-      #         :size   - how many results to return
-      #
-      # Returns the elasticsearch result set
-      def list(opts = {})
-        state = opts[:state] || 'master'
 
-        query = { query: { constant_score: { filter: { term: { state: state } }}}}
-
-        query[:from] = opts[:from] if opts[:from]
-        query[:size] = opts[:size] if opts[:size]
-
-        query[:sort] = opts[:sort] if opts[:sort]
-        query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
-
-        if opts[:scope]
-          item_type = "#{item_type_name.to_s}_#{opts[:scope]}"
-        else
-          item_type = "#{item_type_name.to_s}"
-        end
-
-        res = es_client.search(index: index_name, type: item_type, body: query)
-
-        hydrate_hits(res)
-      end
 
       # Search: Generic search support, delegates to elasticsearch. Searches all documents of type [item_type_name].
       # If history option is set to true, returns such documents which have a child matching the query, i.e. versions.
@@ -272,7 +137,7 @@ module Colonel
       #
       # Returns the elasticsearch result set
       def search(query, opts = {raw: false})
-        query = { query: { query_string: { query: query }} }if query.is_a?(String)
+        query = { query: { query_string: { query: query }} } if query.is_a?(String)
         query = { query: { has_child: { type: revision_type_name.to_s }.merge(query) } } if opts[:history]
 
         body = query
@@ -349,10 +214,6 @@ module Colonel
         @revision_mapping || default_revision_mapping
       end
 
-      # Public: The Elasticsearch client
-      def es_client
-        @es_client ||= ::Elasticsearch::Client.new(host: Colonel.config.elasticsearch_uri, log: false)
-      end
 
       # Internal: Revision type name for elastic search.
       def revision_type_name
@@ -397,24 +258,6 @@ module Colonel
 
       private
 
-      # Internal: Walk through elasticsearch hits and turn them into ContentItem instances
-      def hydrate_hits(es_res, opts={})
-        facets = es_res["facets"]
-        hits   = es_res["hits"]
-
-        hits["hits"] = hits["hits"].map do |hit|
-          if opts[:raw]
-            Content.new(hit["_source"])
-          else
-            open(hit["_source"]["id"], hit["_source"]["revision"])
-          end
-        end
-
-        # FIXME this should probably be a result set class with Enumerable mixin
-        result = {total: hits["total"], hits: hits["hits"] }
-        result.merge!({ facets: facets }) if facets
-        result
-      end
 
       # Internal: Default revision mapping, used for all search in history
       def default_revision_mapping

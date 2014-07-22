@@ -17,12 +17,10 @@ module Colonel
     #
     # content - Hash or an Array content of the document
     # options - an options Hash with extra attributes
-    #           :type    - string type of the document
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
     def initialize(raw_content, opts = {})
       @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used
-      @type = opts[:type] || 'document'
       @repo = opts[:repo]
 
       unless @repo
@@ -32,12 +30,7 @@ module Colonel
 
     # Public: document type used for indexing into a search index, "document" by default.
     def type
-      return @type if @type
-
-      doc = index.lookup(name)
-      raise ArgumentError, "Document type cannot contain whitespace" if doc.nil?
-
-      @type = doc[:type]
+      self.class.type
     end
 
     # Public: Content of the latest revision in the 'master' state, or content updated
@@ -120,7 +113,9 @@ module Colonel
       revision = Revision.new(self, content, author, message, timestamp, previous)
 
       revision.write!(repository, ref)
+
       index.register(id, type)
+      self.class.search_provider.index!(self, revision, state, {name: :save, to: state}) if self.class.search_provider
 
       revision
     end
@@ -145,6 +140,8 @@ module Colonel
 
       revision = Revision.new(self, origin.content, author, message, timestamp, previous, origin)
       oid = revision.write!(repository, ref)
+
+      self.class.search_provider.index!(self, revision, state, {name: :promotion, to: to}) if self.class.search_provider
 
       revision
     end
@@ -198,6 +195,41 @@ module Colonel
 
         Document.new(nil, id: id, repo: repo)
       end
+
+      def list(opts = {})
+        search_provider.list(opts)
+      end
+
+      # Public: get the search provider
+      def search_provider
+        @search_provider ||= ElasticsearchProvider.new(index_name, type)
+      end
+
+      # Public: change the search provider. Pass nil to turn searching and indexing off
+      def search_provider=(provider)
+        @search_provider = provider
+      end
+
+      # Public: document type used by search and DocumentIndex
+      def type
+        @type_name || 'document'
+      end
+
+      # Search configuration API
+
+      # Public: set the type name (use when subclassing)
+      def type_name(name)
+        @type_name = name
+      end
+
+      # Public: set the index name (use when subclassing)
+      def index_name(name = nil)
+        @index_name = name if name
+
+        @index_name ||= Colonel.config.index_name
+      end
+
+      # Internal methods
 
       # Internal: Document index to register the document with when saving to keep track of it
       def index

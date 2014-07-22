@@ -8,7 +8,9 @@ require "colonel/revision"
 require "colonel/revision_collection"
 
 require "colonel/content"
-require "colonel/content_item"
+
+require "colonel/elasticsearch_provider"
+require "colonel/elasticsearch_result_set"
 
 require "colonel/document_index"
 
