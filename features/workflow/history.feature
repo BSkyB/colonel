@@ -26,16 +26,16 @@ Feature: Document history in a particular state
       | publish | second publish  |
       | save    | fourth revision |
       | hotfix  | fixed published |
-    When I list the "published" history:
+    When I list the "published" history
     Then I should get the following revisions:
       | state     | type      | message         |
       | published | save      | fixed published |
       | published | promotion | second publish  |
       | published | promotion | first publish   |
-    When I list the "master" history:
+    When I list the "master" history
     Then I should get the following revisions:
-      | state  | type | message         |
-      | master | save | fourth revision |
-      | master | save | third revision  |
-      | master | save | second revision |
+      | state  | type   | message         |
+      | master | save   | fourth revision |
+      | master | save   | third revision  |
+      | master | save   | second revision |
       | master | orphan | first revision  |

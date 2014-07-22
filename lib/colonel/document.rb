@@ -30,6 +30,7 @@ module Colonel
       end
     end
 
+    # Public: document type used for indexing into a search index, "document" by default.
     def type
       return @type if @type
 
@@ -39,20 +40,48 @@ module Colonel
       @type = doc[:type]
     end
 
-    # Storage
-
-    def init_repository(repository, timestamp = Time.now)
-      return if revisions.root_revision
-
-      # create the root revision
-      revision = Revision.new(self, "", { name: 'The Colonel', email: 'colonel@example.com' }, "First Commit", timestamp, nil)
-
-      oid = revision.write!(repository)
-      repository.references.create(RevisionCollection::ROOT_REF, oid)
+    # Public: Content of the latest revision in the 'master' state, or content updated
+    # by the user, ready to save
+    def content
+      @content ||= revisions['master'].content
     end
 
-    # Public: save the document as a new revision. Commits the content to the top of `master`, updates `master`
-    # and updates the Document's revision to the newly created commit.
+    # Public: Replace the content with another.
+    # content - Hash or Array with content (see Content#new) or Content instance
+    #
+    # Returns a new instance of Content
+    def content=(new_content)
+      @content = (new_content.is_a?(Content) ? new_content : Content.new(new_content))
+    end
+
+    # Public: RevisionCollection for this document
+    #
+    # Call `document.revisions[sha]` or `document.revisions[state]`
+    def revisions
+      @revisions ||= RevisionCollection.new(self)
+    end
+
+    # Public: List the history of a given state.
+    #
+    # state   - list history of a given state, e.g. `published`. (optional)
+    # block   - yield each revision to the block as it's traversed. Useful for early termination
+    #
+    # Returns an array of revision hashes if no block was given, otherwise yields every revision
+    # to the block and returns nothing.
+    def history(id_or_state = 'master', &block)
+      return to_enum(:history, id_or_state) unless block_given?
+
+      revision = revisions[id_or_state]
+
+      while(revision)
+        yield revision
+
+        revision = revision.previous
+      end
+    end
+
+    # Public: save the document as a new revision. Commits the content to the top of `master`,
+    # and updates `master`
     #
     # author    - a Hash containing author attributes
     #             :name - the name of the author
@@ -68,7 +97,12 @@ module Colonel
     # Public: save the document as a new revision. Commits the content to the top of `state`
     # and updates the Document's revision to the newly created commit.
     #
-    # WARNING: don't use this lightly.
+    # WARNING: Do not use this lightly. Usually, you want to only save new changes into the
+    # `master` state, as it creates nice properties for working with the workflow. Sometimes
+    # it is necessary to update a document in another state, and that's what this method
+    # is for. Note also that saving in a later state breaks the promotion chain, so the revisions
+    # promoted from `master` to the one saved over will no longer say they were promoted to
+    # later states the result of the save was promoted to.
     #
     # state     - the name of the state in which to save changes
     # author    - a Hash containing author attributes
@@ -91,42 +125,6 @@ module Colonel
       revision
     end
 
-    def content
-      @content ||= revisions['master'].content
-    end
-
-    # Public: Replace the content with another.
-    # content  - Hash or Array with content (see Content#new)
-    #
-    # Returns a new instance of Content
-    def content=(new_content)
-      @content = Content.new(new_content)
-    end
-
-    def revisions
-      @revisions ||= RevisionCollection.new(self)
-    end
-
-    # Public: List all the revisions.
-    #
-    # state   - list history of a given state, e.g. `published`. (optional)
-    # block   - yield each revision to the block as it's traversed. Useful for early termination
-    #
-    # Returns an array of revision hashes if no block was given, otherwise yields every revision
-    # to the block and returns nothing.
-    def history(id_or_state = 'master', &block)
-      revision = revisions[id_or_state]
-      return to_enum(:history, id_or_state) unless block_given?
-
-      while(revision)
-        yield revision
-
-        revision = revision.previous
-      end
-    end
-
-    # Workflow handling
-
     # Public: Promotes the latest revision in state `from` to state `to`. Creates a merge commit on
     # branch `to` with a `message` and `timestamp`
     #
@@ -143,6 +141,7 @@ module Colonel
       ref = "refs/heads/#{to}"
       origin = revisions[from]
       previous = revisions[to] || revisions.root_revision
+      raise ArgumentError, "No revision for state #{from}" unless origin
 
       revision = Revision.new(self, origin.content, author, message, timestamp, previous, origin)
       oid = revision.write!(repository, ref)
@@ -150,32 +149,7 @@ module Colonel
       revision
     end
 
-    # Public: Was this revision promoted to a given state? That is, is this commit reachable
-    # as a direct ancestor of the given revision? Traverses the `to` state branch backwards
-    # along the first (left) parents and for each of them checks the last (right) parents for
-    # the specified revision.
-    # If you draw the history as a graph, where the timelines of each state are vertical and
-    # the promotions go diagonally, up and to the left, you can clearly see there must be a
-    # second shooter on the grassy kn... aehm... sorry. The search starts with the top of a
-    # state branch and moves down stopping at each commit and searching diagonally, stopping
-    # when it reaches `master`.
-    #
-    # to  - the final state of the promotion
-    # rev - the revision to look for, default to the current revision (optional)
-    def has_been_promoted?(to, rev = nil)
-      rev ||= revision
-      ref = repository.references["refs/heads/#{to}"]
-      return false unless ref
-
-      start = ref.target_id
-
-      commit = repository.lookup(start)
-      has_ancestor?(commit, :first) do |bc|
-        has_ancestor?(bc.parents.last, :last) do |ac|
-          ac && ac.oid == rev
-        end
-      end
-    end
+    # Internal methods
 
     # Internal: The Rugged repository object for the given document
     def repository
@@ -184,6 +158,17 @@ module Colonel
       else
         @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, id), :bare)
       end
+    end
+
+    # Internal: Initialise the repository, creating a tagged root revision
+    def init_repository(repository, timestamp = Time.now)
+      return if revisions.root_revision
+
+      # create the root revision
+      revision = Revision.new(self, "", { name: 'The Colonel', email: 'colonel@example.com' }, "First Commit", timestamp, nil)
+
+      oid = revision.write!(repository)
+      repository.references.create(RevisionCollection::ROOT_REF, oid)
     end
 
     # Internal: Document index to register the document with when saving to keep track of it
@@ -218,30 +203,6 @@ module Colonel
       def index
         DocumentIndex.new(Colonel.config.storage_path)
       end
-    end
-
-    private
-
-    # Internal: Checks whether a `start` commit has an ancestor passing the test specified by
-    # the block. Stops after a commit with a single parent is tested, to avoid switching branches
-    #
-    # start          - Rugged commit object to start with
-    # update         - the update message to send to the commit parrents to get the next one in line
-    # block          - the test. Gets a commit object
-    def has_ancestor?(start, update, &block)
-      while start
-        return true if yield(start)
-
-        break if update == :last && on_master?(start)
-
-        start = start.parents.send(update)
-      end
-
-      return false
-    end
-
-    def on_master?(commit)
-      commit.parents.length < 2
     end
   end
 end

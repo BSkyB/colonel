@@ -27,13 +27,15 @@ Given(/^an document with the following history:$/) do |table|
       @document.save!(author, revision[:message])
     when 'publish'
       @document.promote!('master', 'published', author, revision[:message])
+    when 'retire'
+      @document.promote!('published', 'retired', author, revision[:message])
     when 'hotfix'
       @document.save_in!('published', author, revision[:message])
     end
   end
 end
 
-When(/^I list the "(.*?)" history:$/) do |state|
+When(/^I list the "(.*?)" history$/) do |state|
   @history = @document.history(state)
 end
 
@@ -47,3 +49,26 @@ Then(/^I should get the following revisions:$/) do |table|
   end
 end
 
+Then(/^I should get the following results of checking promotion:$/) do |table|
+  table.hashes.each do |revision|
+    rev = @history.next
+
+    published = case revision[:published]
+      when 'true'
+        true
+      when 'false'
+        false
+    end
+
+    retired = case revision[:retired]
+      when 'true'
+        true
+      when 'false'
+        false
+    end
+
+    expect(rev.message).to eq(revision[:message])
+    expect(rev.has_been_promoted?('published')).to eq(published)
+    expect(rev.has_been_promoted?('retired')).to eq(retired)
+  end
+end
