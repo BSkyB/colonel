@@ -37,4 +37,4 @@ revision.has_been_promoted?('published')
 ```
 
 What this means exactly requires a little discussion. You're encouraged to read
-the [cucumber feature](has_been_promoted.feature).
+the [cucumber feature](inspection.feature).
