@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe ContentItem, deprecated: true do
+describe 'ContentItem', deprecated: true do
   before :all do
     Colonel.config.index_name = 'colonel-content-index'
   end

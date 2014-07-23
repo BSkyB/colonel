@@ -3,6 +3,8 @@ Given(/^the following documents:$/) do |table|
     document = Document.new(content)
     document.save!({name: 'Test', email: 'test@example.com'})
   end
+
+  ElasticsearchProvider.es_client.indices.refresh index: '_all'
 end
 
 When(/^I list all documents$/) do
@@ -10,13 +12,15 @@ When(/^I list all documents$/) do
 end
 
 Then(/^I should get the following documents:$/) do |table|
-  docs = @documents.each
+  docs = @documents.map do |doc|
+    doc.content
+  end
 
   table.hashes.each do |content|
-    doc = docs.next
-    content.each do |key, val|
-      expect(doc.content.get(key)).to eq(value)
-    end
+    expect(docs.any? do |d|
+      content.all? do |key, value|
+        d.get(key) == value
+      end
+    end).to be(true), "Didin't find #{content.inspect} in #{docs.inspect}"
   end
 end
-

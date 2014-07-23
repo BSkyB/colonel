@@ -141,7 +141,7 @@ module Colonel
       revision = Revision.new(self, origin.content, author, message, timestamp, previous, origin)
       oid = revision.write!(repository, ref)
 
-      self.class.search_provider.index!(self, revision, state, {name: :promotion, to: to}) if self.class.search_provider
+      self.class.search_provider.index!(self, revision, to, {name: :promotion, to: to}) if self.class.search_provider
 
       revision
     end
@@ -202,7 +202,9 @@ module Colonel
 
       # Public: get the search provider
       def search_provider
-        @search_provider ||= ElasticsearchProvider.new(index_name, type)
+        return nil if @search_provider && !@search_provider.is_a?(ElasticsearchProvider)
+
+        @search_provider ||= ElasticsearchProvider.new(@index_name, type, @custom_mapping)
       end
 
       # Public: change the search provider. Pass nil to turn searching and indexing off
@@ -212,21 +214,37 @@ module Colonel
 
       # Public: document type used by search and DocumentIndex
       def type
-        @type_name || 'document'
+        @type || 'document'
       end
 
       # Search configuration API
 
-      # Public: set the type name (use when subclassing)
+      # Public: override the type name (use when subclassing)
       def type_name(name)
-        @type_name = name
+        @type = name
       end
 
-      # Public: set the index name (use when subclassing)
-      def index_name(name = nil)
-        @index_name = name if name
+      # Public: override index name (use when subclassing)
+      def index_name(name)
+        @index_name = name
+      end
 
-        @index_name ||= Colonel.config.index_name
+      # Public: Set custom mapping for your content structure. Yields to a block that
+      # should return a hash with the attributes mapping.
+      #
+      # Examples
+      #
+      #   attributes_mapping do
+      #     {
+      #       tags: {
+      #         type: "string",
+      #         index: "not_analyzed", # we only want exact matches
+      #         boost: 2 # boost tags when searching
+      #       }
+      #     }
+      #   end
+      def attributes_mapping(&block)
+        @custom_mapping = yield
       end
 
       # Internal methods

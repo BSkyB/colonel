@@ -18,6 +18,10 @@ describe Document do
       parents: [])
   end
 
+  before(:all) do
+    Document.search_provider = :none # turn off search
+  end
+
   describe "creation" do
     before do
       allow(Rugged::Repository).to receive(:new).and_return nil

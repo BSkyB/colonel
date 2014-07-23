@@ -1,3 +1,5 @@
+require 'ostruct'
+
 module Colonel
   # DEPRECATED
   # Public: Structured content storage. Backed by `Document` for versioning and publishing states support.
@@ -56,60 +58,6 @@ module Colonel
       @id = @document.name
     end
 
-    # Public: Index the content in elasticsearch. Creates a document for the revision and updates the document
-    # for the item, to enable both search of the lates and all the revisions.
-    # Document ids have a format docid-state and docid-revisionsha.
-    #
-    # opts - an options hash with keys
-    #        :state - the state of the document
-    #        :updated_at - the timestamp
-    #        :revision - the sha of the revision
-    #        :event - the event causing the index - object with keys:
-    #                 :name - :save or :promote
-    #                 :to   - to state name
-    #
-    # Returns nothing
-    def index!(opts = {})
-      commands = index_commands(opts)
-      self.class.es_client.bulk body: commands
-    end
-
-    # Internal: build the index commands for `index!` without running them against es_client
-    def index_commands(opts = {})
-      state = opts[:state] || 'master'
-      updated_at = opts[:updated_at]
-      sha = opts[:revision]
-      event = opts[:event]
-
-      body = {
-        id: id,
-        revision: sha,
-        state: state,
-        updated_at: updated_at.iso8601
-      }
-
-      body = body.merge(@content.plain)
-
-      latest_id = "#{@id}"
-      item_id = "#{@id}-#{state}"
-      rev_id = "#{@id}-#{sha}"
-
-      cmds = [
-        {index: {_index: self.class.index_name, _type: self.class.item_type_name.to_s, _id: item_id, data: body}},
-        {index: {_index: self.class.index_name, _type: self.class.revision_type_name.to_s, _id: rev_id, _parent: item_id, data: body}}
-      ]
-
-      self.class.scopes.each do |scope, pred|
-        on = [pred[:on]].flatten.map(&:to_sym)
-        to = [pred[:to]].flatten.map(&:to_sym)
-        next unless on.any? { |o| o.to_sym == event[:name].to_sym } && to.any? { |t| t == event[:to].to_sym }
-
-        name = "#{self.class.item_type_name}_#{scope}"
-        cmds << {index: {_index: self.class.index_name, _type: name, _id: latest_id, data: body}}
-      end
-
-      cmds
-    end
 
     class << self
       # Public: Open a content item by it's id and optionally revision. Delegates to the document.
@@ -214,50 +162,18 @@ module Colonel
         @revision_mapping || default_revision_mapping
       end
 
+      # Public: The Elasticsearch client
+      def es_client
+        @es_client ||= ::Elasticsearch::Client.new(host: Colonel.config.elasticsearch_uri, log: false)
+      end
 
       # Internal: Revision type name for elastic search.
       def revision_type_name
         item_type_name + "_rev"
       end
 
-      # Public: idempotently create the ES index
-      def ensure_index!
-        unless es_client.indices.exists index: index_name
-          body = { mappings: {} }
-          body[:mappings][item_type_name] = item_mapping
-          body[:mappings][revision_type_name] = revision_mapping
-
-          scopes.each do |name, preds|
-            name = "#{item_type_name}_#{name}"
-            body[:mappings][name] = item_mapping
-          end
-
-          es_client.indices.create index: index_name, body: body
-        end
-      end
-
-      # Public: update the mappings for item and revision types.
-      def put_mapping!
-        item_body = {
-          item_type_name => item_mapping
-        }
-        revision_body = {
-          revision_type_name=> revision_mapping
-        }
-
-        es_client.indices.put_mapping index: index_name, type: item_type_name, body: item_body
-        es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
-
-        scopes.each do |name, preds|
-          name = "#{item_type_name}_#{name}"
-          body = {name => item_mapping}
-
-          es_client.indices.put_mapping index: index_name, type: name, body: body
-        end
-      end
 
       private
-
 
       # Internal: Default revision mapping, used for all search in history
       def default_revision_mapping
