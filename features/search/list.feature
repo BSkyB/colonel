@@ -22,3 +22,18 @@ Feature: Listing
       | Third document  |
 
   Scenario: Listing published documents
+    Given the following documents:
+      | text            |
+      | First document  |
+      | Second document |
+    Given the following documents promoted to "published":
+      | text                      |
+      | First published document  |
+      | Second published document |
+      | Third published document  |
+    When I list all "published" documents
+    Then I should get the following documents:
+      | text                      |
+      | First published document  |
+      | Second published document |
+      | Third published document  |
