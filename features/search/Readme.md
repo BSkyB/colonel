@@ -37,3 +37,7 @@ The results coming back are a hash with the following structure
 
 in `hits` you get Document instances, unless you searched with
 the `raw` option.
+
+You can customise the mappings used when indexing the documents as well
+as the type name to use. In order to do that, you have to subclass
+the `Document` class. See <custom.feature> for details.
