@@ -200,6 +200,10 @@ module Colonel
         search_provider.list(opts)
       end
 
+      def search(*args)
+        search_provider.search(*args)
+      end
+
       # Public: get the search provider
       def search_provider
         return nil if @search_provider && !@search_provider.is_a?(ElasticsearchProvider)

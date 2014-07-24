@@ -35,19 +35,42 @@ module Colonel
 
       query = { query: { constant_score: { filter: { term: { state: state } }}}}
 
-      query[:from] = opts[:from] if opts[:from]
-      query[:size] = opts[:size] if opts[:size]
+      search(query, opts)
+    end
 
-      query[:sort] = opts[:sort] if opts[:sort]
-      query[:sort] = [query[:sort]] if query[:sort] && !query[:sort].is_a?(Array)
+    # Search: Generic search support, delegates to elasticsearch. Searches all documents of type [item_type_name].
+    # If history option is set to true, returns such documents which have a child matching the query, i.e. versions.
+    # In essence you search through all the versions and get
+    # the documents having a matching version get.
+    #
+    # query - string, or elastic search query DSL. Forwarded to elasticsearch
+    # opts  - an options hash
+    #         :history - boolean, search across all revisions. Default false.
+    #         :scope - filter search to a custom scope
+    #         :sort - sort specification
+    #         :from - how many results to skip
+    #         :size - how many results to show
+    #
+    # Returns the elasticsearch result set
+    def search(query, opts = {})
+      query = { query: { query_string: { query: query }} } if query.is_a?(String)
+      query = { query: { has_child: { type: revision_type_name.to_s }.merge(query) } } if opts[:history]
+
+      body = query
+
+      body[:from] = opts[:from] if opts[:from]
+      body[:size] = opts[:size] if opts[:size]
+
+      body[:sort] = opts[:sort] if opts[:sort]
+      body[:sort] = [body[:sort]] if body[:sort] && !body[:sort].is_a?(Array)
 
       if opts[:scope]
-        item_type = "#{type_name}_#{opts[:scope]}"
+        item_type = "#{type_name.to_s}_#{opts[:scope]}"
       else
-        item_type = "#{type_name}"
+        item_type = "#{type_name.to_s}"
       end
 
-      res = es_client.search(index: index_name, type: type_name, body: query)
+      res = es_client.search(index: index_name, type: item_type, body: body)
 
       ElasticsearchResultSet.new(res)
     end

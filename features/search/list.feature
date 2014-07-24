@@ -1,6 +1,7 @@
 Feature: Listing
-  The most basic kind of
-  Default state to search is master, with the assumption that
+  The most basic kind of search is plain listing.
+
+  Default state to list is master, with the assumption that
   that's where all the different content is anyway. You can
   also specify a different state
 
