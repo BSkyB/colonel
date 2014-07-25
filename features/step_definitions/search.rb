@@ -131,6 +131,21 @@ Then(/^I should get the following documents in order:$/) do |table|
   end
 end
 
+Then(/^I should get the following raw documents:$/) do |table|
+  docs = @documents.raw.to_a
+
+  expect(@documents.count).to eq(table.hashes.length)
+
+  table.hashes.each do |content|
+    expect(docs.any? do |d|
+      content.all? do |key, value|
+        d.get(key) == value
+      end
+    end).to be(true), "Didin't find #{content.inspect} in #{docs.inspect}"
+  end
+end
+
+
 Then(/^I should not get any results$/) do
   expect(@documents.total).to eq(0)
 end
