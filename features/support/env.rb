@@ -16,4 +16,5 @@ ElasticsearchProvider.initialize!(Colonel::Document)
 
 Before do
   ElasticsearchProvider.es_client.delete_by_query index: Colonel.config.index_name, q: '*'
+  FileUtils.rm_rf Colonel.config.storage_path
 end
