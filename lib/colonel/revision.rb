@@ -67,7 +67,7 @@ module Colonel
     def timestamp
       return @timestamp if @timestamp
 
-      @timestamp = commit.timestamp unless commit.nil?
+      @timestamp = commit.time unless commit.nil?
     end
 
     # Public: Type of the revision, can be one of :promotion, :save, or :orphan
@@ -97,10 +97,10 @@ module Colonel
     def previous
       return @previous if @previous
 
-      @previous = Revision.from_commit(@document, commit.parent_ids[0], state) unless commit.nil? || commit.parent_ids[0].nil?
-      return nil if @previous && @previous.root?
+      prev = Revision.from_commit(@document, commit.parent_ids[0], state) unless commit.nil? || commit.parent_ids[0].nil?
+      return nil if prev && prev.root?
 
-      @previous
+      @previous = prev
     end
 
     # Public: Origin revision of the promotion. Promotion revisions will have
@@ -108,10 +108,10 @@ module Colonel
     def origin
       return @origin if @origin
 
-      @origin = Revision.from_commit(@document, commit.parent_ids[1], state) unless commit.nil? || commit.parent_ids[1].nil?
-      return nil if @origin && @origin.root?
+      orig = Revision.from_commit(@document, commit.parent_ids[1], state) unless commit.nil? || commit.parent_ids[1].nil?
+      return nil if orig && orig.root?
 
-      @origin
+      @origin = orig
     end
 
     # Public: Checks whether a revision is the internal root revision which provides

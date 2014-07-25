@@ -82,14 +82,6 @@ module Colonel
     # for the item, to enable both search of the lates and all the revisions.
     # Document ids have a format docid-state and docid-revisionsha.
     #
-    # opts - an options hash with keys
-    #        :state - the state of the document
-    #        :updated_at - the timestamp
-    #        :revision - the sha of the revision
-    #        :event - the event causing the index - object with keys:
-    #                 :name - :save or :promote
-    #                 :to   - to state name
-    #
     # Returns nothing
     def index!(document, revision, state, event)
       commands = index_commands(document, revision, state, event)

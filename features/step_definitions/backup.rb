@@ -23,3 +23,17 @@ When(/^I list all documents in the document index$/) do
   index = DocumentIndex.new(Colonel.config.storage_path)
   @documents = index.documents.map { |doc| Document.open(doc[:name]) }
 end
+
+When(/^I recreate the Elasticsearch index$/) do
+  ElasticsearchProvider.es_client.indices.delete index: Colonel.config.index_name
+  ElasticsearchProvider.initialize!(Colonel::Document)
+end
+
+When(/^I reindex the documents$/) do
+  index = DocumentIndex.new(Colonel.config.storage_path)
+  documents = index.documents.map { |doc| Document.open(doc[:name]) }
+
+  Indexer.index(documents)
+
+  ElasticsearchProvider.es_client.indices.refresh index: '_all'
+end

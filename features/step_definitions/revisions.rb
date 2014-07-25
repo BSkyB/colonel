@@ -58,4 +58,8 @@ Then(/^I should be able to iterate through revisions with content:$/) do |table|
       expect(revision.content.get(key)).to eq(value)
     end
   end
+
+  expect {
+    expected_revision.next
+  }.to raise_error
 end

@@ -47,15 +47,15 @@ module Colonel
 
     private
 
-    def perform_indexing(index_name, content_items)
+    def perform_indexing(index_name, classes)
       index = DocumentIndex.new(Colonel.config.storage_path)
       docs = index.documents.map { |doc| Document.open(doc[:name]) }
 
-      mapping = content_items.map do |klass|
-        klass = eval(klass)
-        type_name = klass.item_type_name
+      mapping = classes.map do |klass|
+        klass = Object.const(klass)
+        type_name = klass.search_provider.type_name
 
-        puts "Indexing #{klass} items into #{index_name}..."
+        puts "Indexing #{klass} items into #{index_name || klass.search_provider.index_name}..."
         klass.index_name index_name if index_name
 
         [type_name, klass]

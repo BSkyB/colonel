@@ -16,7 +16,7 @@ Feature: Document history in a particular state
   Note that the `state` attribute is unknown when you lookup the revision
   using `RevisionCollection#[]` (e.g `document.revisions[sha1]`).
 
-  Scenario: Listing a specific state
+  Background:
     Given an document with the following history:
       | change  | message         |
       | save    | first revision  |
@@ -26,12 +26,16 @@ Feature: Document history in a particular state
       | publish | second publish  |
       | save    | fourth revision |
       | hotfix  | fixed published |
+
+  Scenario: Listing a published state
     When I list the "published" history
     Then I should get the following revisions:
       | state     | type      | message         |
       | published | save      | fixed published |
       | published | promotion | second publish  |
       | published | promotion | first publish   |
+
+  Scenario: Listing a master state
     When I list the "master" history
     Then I should get the following revisions:
       | state  | type   | message         |

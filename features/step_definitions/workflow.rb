@@ -47,6 +47,11 @@ Then(/^I should get the following revisions:$/) do |table|
     expect(rev.state).to eq(revision[:state])
     expect(rev.message).to eq(revision[:message])
   end
+
+  another = nil
+  expect {
+    another = @history.next
+  }.to raise_error, "Expected iteration to end, got #{another.inspect}"
 end
 
 Then(/^I should get the following results of checking promotion:$/) do |table|
@@ -71,4 +76,8 @@ Then(/^I should get the following results of checking promotion:$/) do |table|
     expect(rev.has_been_promoted?('published')).to eq(published)
     expect(rev.has_been_promoted?('retired')).to eq(retired)
   end
+
+  expect {
+    @history.next
+  }.to raise_error
 end
