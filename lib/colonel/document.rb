@@ -208,7 +208,7 @@ module Colonel
       def search_provider
         return nil if @search_provider && !@search_provider.is_a?(ElasticsearchProvider)
 
-        @search_provider ||= ElasticsearchProvider.new(@index_name, type, @custom_mapping)
+        @search_provider ||= ElasticsearchProvider.new(@index_name, type, @custom_mapping, @scopes)
       end
 
       # Public: change the search provider. Pass nil to turn searching and indexing off
@@ -249,6 +249,11 @@ module Colonel
       #   end
       def attributes_mapping(&block)
         @custom_mapping = yield
+      end
+
+      def scope(name, predicates)
+        @scopes ||= {}
+        @scopes[name] = predicates
       end
 
       # Internal methods

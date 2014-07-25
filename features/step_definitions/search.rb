@@ -44,6 +44,26 @@ Given(/^documents of class "(.*?)" with content:$/) do |klass, table|
   ElasticsearchProvider.es_client.indices.refresh index: '_all'
 end
 
+Given(/^an "(.*?)" with text "(.*?)" and the following history:$/) do |klass, text, table|
+  klass = Object.const_get(klass)
+  ElasticsearchProvider.initialize!(klass)
+
+  @document = klass.new(text: text)
+
+  table.hashes.each do |revision|
+    case revision["change"]
+    when "save"
+      @document.save!({name: 'Test', email: 'test@example.com'}, revision['message'])
+    when "publish"
+      @document.promote!('master', 'published', {name: 'Test', email: 'test@example.com'}, revision['message'])
+    when "archive"
+      @document.promote!('master', 'archived', {name: 'Test', email: 'test@example.com'}, revision['message'])
+    end
+  end
+
+  ElasticsearchProvider.es_client.indices.refresh index: '_all'
+end
+
 When(/^I list all documents$/) do
   @documents = Document.list
 end
@@ -73,6 +93,11 @@ end
 When(/^I search "(.*?)" for '(.*?)'$/) do |klass, query|
   klass = Object.const_get(klass)
   @documents = klass.search(query)
+end
+
+When(/^I search "(.*?)" for "(.*?)" with scope "(.*?)"$/) do |klass, query, scope|
+  klass = Object.const_get(klass)
+  @documents = klass.search(query, scope: scope)
 end
 
 Then(/^I should get the following documents:$/) do |table|
@@ -109,3 +134,7 @@ end
 Then(/^I should not get any results$/) do
   expect(@documents.total).to eq(0)
 end
+
+
+
+

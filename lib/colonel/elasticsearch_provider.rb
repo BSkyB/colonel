@@ -2,17 +2,20 @@
 module Colonel
   class ElasticsearchProvider
 
-    attr_reader :index_name, :type_name, :item_mapping, :revision_mapping
+    attr_reader :index_name, :type_name, :item_mapping, :revision_mapping, :scopes
 
-    def initialize(index_name, type_name, custom_mapping = nil)
+    def initialize(index_name, type_name, custom_mapping = nil, scopes = nil)
       @index_name = (index_name || Colonel.config.index_name).to_s
       @type_name = type_name.to_s
+
 
       @item_mapping = self.class.default_item_mapping
       @item_mapping[:properties] = @item_mapping[:properties].merge(custom_mapping) if custom_mapping
 
       @revision_mapping = self.class.default_revision_mapping(@type_name)
       @revision_mapping[:properties] = @revision_mapping[:properties].merge(custom_mapping) if custom_mapping
+
+      @scopes = scopes || []
     end
 
     def revision_type_name
@@ -113,15 +116,14 @@ module Colonel
         {index: {_index: index_name, _type: revision_type_name, _id: rev_id, _parent: item_id, data: body}}
       ]
 
-      # TODO scopes
-      # self.class.scopes.each do |scope, pred|
-      #   on = [pred[:on]].flatten.map(&:to_sym)
-      #   to = [pred[:to]].flatten.map(&:to_sym)
-      #   next unless on.any? { |o| o.to_sym == event[:name].to_sym } && to.any? { |t| t == event[:to].to_sym }
+      scopes.each do |scope, pred|
+        on = [pred[:on]].flatten.map(&:to_sym)
+        to = [pred[:to]].flatten.map(&:to_sym)
+        next unless on.any? { |o| o.to_sym == event[:name].to_sym } && to.any? { |t| t == event[:to].to_sym }
 
-      #   name = "#{self.class.item_type_name}_#{scope}"
-      #   cmds << {index: {_index: self.class.index_name, _type: name, _id: latest_id, data: body}}
-      # end
+        name = "#{type_name}_#{scope}"
+        cmds << {index: {_index: index_name, _type: name, _id: latest_id, data: body}}
+      end
 
       cmds
     end
@@ -137,19 +139,11 @@ module Colonel
       def initialize!(*classes)
         # for all specified classes
         classes.each do |klass|
-          # get class' search provider
           sp = klass.search_provider
 
-          # get the (potentially overriden) index parameters
-          index_name = sp.index_name
-          type_name = sp.type_name
-          revision_type_name = sp.revision_type_name
-          item_mapping = sp.item_mapping
-          revision_mapping = sp.revision_mapping
-
           # ensure index existence and update mapping
-          ensure_index!(index_name, type_name, revision_type_name, item_mapping, revision_mapping)
-          put_mapping!(index_name, type_name, revision_type_name, item_mapping, revision_mapping)
+          ensure_index!(sp.index_name, sp.type_name, sp.revision_type_name, sp.item_mapping, sp.revision_mapping, sp.scopes)
+          put_mapping!(sp.index_name, sp.type_name, sp.revision_type_name, sp.item_mapping, sp.revision_mapping, sp.scopes)
         end
       end
 
@@ -159,24 +153,23 @@ module Colonel
       end
 
       # Internal: idempotently create the ES index
-      def ensure_index!(index_name, type_name, revision_type_name, item_mapping, revision_mapping)
+      def ensure_index!(index_name, type_name, revision_type_name, item_mapping, revision_mapping, scopes)
         unless es_client.indices.exists index: index_name
           body = { mappings: {} }
           body[:mappings][type_name] = item_mapping
           body[:mappings][revision_type_name] = revision_mapping
 
-          # TODO scopes
-          # scopes.each do |name, preds|
-          #   name = "#{type_name}_#{name}"
-          #   body[:mappings][name] = item_mapping
-          # end
+          scopes.each do |name, preds|
+            name = "#{type_name}_#{name}"
+            body[:mappings][name] = item_mapping
+          end
 
           es_client.indices.create index: index_name, body: body
         end
       end
 
       # Internal: update the mappings for item and revision types.
-      def put_mapping!(index_name, type_name, revision_type_name, item_mapping, revision_mapping)
+      def put_mapping!(index_name, type_name, revision_type_name, item_mapping, revision_mapping, scopes)
         item_body = {
           type_name => item_mapping
         }
@@ -187,13 +180,12 @@ module Colonel
         es_client.indices.put_mapping index: index_name, type: type_name, body: item_body
         es_client.indices.put_mapping index: index_name, type: revision_type_name, body: revision_body
 
-        # TODO scopes
-        # scopes.each do |name, preds|
-        #   name = "#{type_name}_#{name}"
-        #   body = {name => item_mapping}
+        scopes.each do |name, preds|
+          name = "#{type_name}_#{name}"
+          body = {name => item_mapping}
 
-        #   es_client.indices.put_mapping index: index_name, type: name, body: body
-        # end
+          es_client.indices.put_mapping index: index_name, type: name, body: body
+        end
       end
 
       # Internal: Default revision mapping, used for all search in history
