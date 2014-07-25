@@ -7,10 +7,16 @@ if ENV['CIRCLE_ARTIFACTS']
   dir = File.join("..", "..", "..", ENV['CIRCLE_ARTIFACTS'], "coverage")
   SimpleCov.start do
     coverage_dir(dir)
+    add_filter "/spec/"
+    add_filter "/features/"
+
     add_filter "/vendor/"
   end
 else
-  SimpleCov.start
+  SimpleCov.start do
+    add_filter "/spec/"
+    add_filter "/features/"
+  end
 end
 
 require 'pry'
