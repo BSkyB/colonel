@@ -13,7 +13,7 @@ module Colonel
       def generate(documents, ostream)
         documents = [documents] unless documents.respond_to?(:each)
         documents.each do |document|
-          ostream.puts "document: #{document.name} #{document.type}"
+          ostream.puts "document: #{document.id} #{document.type}"
           ostream.puts "objects:"
 
           repo = document.repository
@@ -44,13 +44,15 @@ module Colonel
       # Public: loads a series of documents from a string produced by `generate`
       #
       # istream   - input stream to read from
+      # classes   - has of document types to class definitions
       #
       # returns a document instance
-      def load(stream, &block)
+      def load(stream, classes = {}, &block)
+        classes = {'document' => Colonel::Document}.merge(classes)
+
         # FIXME improve this method, it has a multitude of small issues...
         # - empty file will cause a crash
         # - change RuntimeError into a more specific exception type
-        # - name $~ for clearer code
 
         document = nil
         type = nil
@@ -67,12 +69,14 @@ module Colonel
               yield document if block_given?
             end
 
-            name = $~[1]
+            id = $~[1]
             type = $~[2]
+            klass = classes[type]
 
-            raise RuntimeError, "Malformed document header" if name.empty? || type.empty?
+            raise RuntimeError, "Malformed document header" if id.empty? || type.empty?
+            raise RuntimeError, "Unknown class for type #{type} (know #{classes.inspect})" unless klass
 
-            document = Document.new(type, name)
+            document = klass.new(id: id)
             repo = document.repository
           when /^references:$/
             raise RuntimeError, "Malformed document, unexpected references section" unless reading == :object
@@ -124,8 +128,7 @@ module Colonel
       end
 
       def finalize_document(document, type)
-        document.load!
-        document.index.register(document.name, type)
+        document.index.register(document.id, type)
 
         document
       end
