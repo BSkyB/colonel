@@ -17,5 +17,7 @@ test/version_tmp
 tmp
 .DS_Store
 
+.colonel
 /storage
 /test-storage
+backup.col
