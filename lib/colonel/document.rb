@@ -193,7 +193,7 @@ module Colonel
           return nil
         end
 
-        Document.new(nil, id: id, repo: repo)
+        new(nil, id: id, repo: repo)
       end
 
       def list(opts = {})

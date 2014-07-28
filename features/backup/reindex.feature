@@ -25,3 +25,35 @@ Feature: Reindex content to Elasticsearch
       | Second document |
       | Third document  |
 
+  Scenario: Reindex custom type
+    Given the following class:
+      """
+      class Article < Colonel::Document
+        type_name 'article'
+
+        attributes_mapping do
+          {
+            stringid: {
+              type: :string,
+              index: :not_analyzed
+            },
+            tags: {
+              type: :string,
+              analyzer: :whitespace
+            }
+          }
+        end
+      end
+      """
+    And documents of class "Article" with content:
+      | text           | stringid   | tags      |
+      | First article  | first_one  | red blue  |
+      | Second article | second_one | red green |
+      | Third article  | third_one  | pink blue |
+    When I recreate the Elasticsearch index
+    And I reindex the "Article" documents
+    And I search "Article" for 'green pink blu one'
+    Then I should get the following documents:
+      | text           | stringid   | tags      |
+      | Second article | second_one | red green |
+      | Third article  | third_one  | pink blue |

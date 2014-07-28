@@ -37,3 +37,14 @@ When(/^I reindex the documents$/) do
 
   ElasticsearchProvider.es_client.indices.refresh index: '_all'
 end
+
+When(/^I reindex the "(.*?)" documents$/) do |klass|
+  klass = Object.const_get(klass)
+
+  index = DocumentIndex.new(Colonel.config.storage_path)
+  documents = index.documents.map { |doc| klass.open(doc[:name]) }
+
+  Indexer.index(documents)
+
+  ElasticsearchProvider.es_client.indices.refresh index: '_all'
+end
