@@ -8,7 +8,6 @@ module Colonel
       @index_name = (index_name || Colonel.config.index_name).to_s
       @type_name = type_name.to_s
 
-
       @item_mapping = self.class.default_item_mapping
       @item_mapping[:properties] = @item_mapping[:properties].merge(custom_mapping) if custom_mapping
 
@@ -128,10 +127,10 @@ module Colonel
     class << self
       # Public: Initialize search index for all Document subclasses. Creates an index for each
       # class respecting the type, index name and attributes mapping specified by each class
-      def initialize!(*classes)
+      def initialize!
         # for all specified classes
-        classes.each do |klass|
-          sp = klass.search_provider
+        DocumentType.all.each do |type_name, type|
+          sp = type.search_provider
 
           # ensure index existence and update mapping
           ensure_index!(sp.index_name, sp.type_name, sp.revision_type_name, sp.item_mapping, sp.revision_mapping, sp.scopes)

@@ -9,7 +9,7 @@ When(/^I dump documents into a file named "(.*?)"$/) do |filename|
   end
 end
 
-When(/^I remove all files in the storag$/) do
+When(/^I remove all files in the storage$/) do
   FileUtils.rm_rf Colonel.config.storage_path
 end
 
@@ -21,17 +21,23 @@ end
 
 When(/^I list all documents in the document index$/) do
   index = DocumentIndex.new(Colonel.config.storage_path)
-  @documents = index.documents.map { |doc| Document.open(doc[:name]) }
+  @documents = index.documents.map do |doc|
+    type = DocumentType.get(doc[:type])
+    type.open(doc[:name])
+  end
 end
 
 When(/^I recreate the Elasticsearch index$/) do
   ElasticsearchProvider.es_client.indices.delete index: Colonel.config.index_name
-  ElasticsearchProvider.initialize!(Colonel::Document)
+  ElasticsearchProvider.initialize!
 end
 
 When(/^I reindex the documents$/) do
   index = DocumentIndex.new(Colonel.config.storage_path)
-  documents = index.documents.map { |doc| Document.open(doc[:name]) }
+  documents = index.documents.map do |doc|
+    type = DocumentType.get(doc[:type])
+    type.open(doc[:name])
+  end
 
   Indexer.index(documents)
 
@@ -42,7 +48,10 @@ When(/^I reindex the "(.*?)" documents$/) do |klass|
   klass = Object.const_get(klass)
 
   index = DocumentIndex.new(Colonel.config.storage_path)
-  documents = index.documents.map { |doc| klass.open(doc[:name]) }
+  documents = index.documents.map do |doc|
+    type = DocumentType.get(doc[:type])
+    type.open(doc[:name])
+  end
 
   Indexer.index(documents)
 

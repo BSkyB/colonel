@@ -28,13 +28,14 @@ Given(/^the following documents promoted to "(.*?)":$/) do |status, table|
   ElasticsearchProvider.es_client.indices.refresh index: '_all'
 end
 
-Given(/^the following class:$/) do |string|
+Given(/^the following configuration:$/) do |string|
   eval(string)
 end
 
 Given(/^documents of class "(.*?)" with content:$/) do |klass, table|
+  ElasticsearchProvider.initialize!
+
   klass = Object.const_get(klass)
-  ElasticsearchProvider.initialize!(klass)
 
   table.hashes.each do |content|
     document = klass.new(content)
@@ -45,9 +46,9 @@ Given(/^documents of class "(.*?)" with content:$/) do |klass, table|
 end
 
 Given(/^an "(.*?)" with text "(.*?)" and the following history:$/) do |klass, text, table|
-  klass = Object.const_get(klass)
-  ElasticsearchProvider.initialize!(klass)
+  ElasticsearchProvider.initialize!
 
+  klass = Object.const_get(klass)
   @document = klass.new(text: text)
 
   table.hashes.each do |revision|
@@ -65,6 +66,7 @@ Given(/^an "(.*?)" with text "(.*?)" and the following history:$/) do |klass, te
 end
 
 When(/^I list all documents$/) do
+  ElasticsearchProvider.es_client.indices.refresh index: '_all'
   @documents = Document.list
 end
 

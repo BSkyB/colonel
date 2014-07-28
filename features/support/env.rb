@@ -30,7 +30,7 @@ begin
 rescue
 end
 
-ElasticsearchProvider.initialize!(Colonel::Document)
+ElasticsearchProvider.initialize!
 
 Before do
   ElasticsearchProvider.es_client.delete_by_query index: Colonel.config.index_name, q: '*'

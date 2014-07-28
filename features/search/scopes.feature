@@ -34,11 +34,9 @@ Feature: Custom search scopes
   ```
 
   Background:
-    Given the following class:
+    Given the following configuration:
       """
-      class CustomArticle < Colonel::Document
-        type_name 'article'
-
+      CustomArticle = Colonel::DocumentType.new('custom_article') do
         scope 'visible', on: 'promotion', to: ['published', 'archived']
       end
       """

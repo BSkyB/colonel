@@ -1,11 +1,32 @@
 Feature: custom type name and mappings
+  You can define your own document types and customize
+  the attributes mapping fro elasticsearch. That will allow
+  you to do different kinds of matches against the fields
+  stored in your Document.
+
+  You define document types by creating a new one
+
+  ```
+  Article = Colonel::DocumentType.new('article') do
+    attributes_mapping do
+      {
+        stringid: {
+          type: :string,
+          index: :not_analyzed
+        },
+        tags: {
+          type: :string,
+          analyzer: :whitespace
+        }
+      }
+    end
+  end
+  ```
 
   Background:
-    Given the following class:
+    Given the following configuration:
       """
-      class Article < Colonel::Document
-        type_name 'article'
-
+      Article = Colonel::DocumentType.new('article') do
         attributes_mapping do
           {
             stringid: {

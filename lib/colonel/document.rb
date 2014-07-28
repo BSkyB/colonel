@@ -11,7 +11,7 @@ module Colonel
   # A promotion to a following state is recorded as a merge commit from the original state baranch to
   # a new state branch. New state revision is therefore not the same revision as the original revision.
   class Document
-    attr_reader :id
+    attr_reader :id, :type
 
     # Public: create a new document
     #
@@ -20,17 +20,13 @@ module Colonel
     #           :repo    - rugged repository object when loading an existing document. (optional).
     #                      Not meant to be used directly
     def initialize(raw_content, opts = {})
-      @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used
+      @id = opts[:id] || SecureRandom.hex(16) # FIXME check that the content id isn't already used / use UUID
       @repo = opts[:repo]
+      @type = opts[:type] || DocumentType.get('document')
 
       unless @repo
         @content = Content.new(raw_content)
       end
-    end
-
-    # Public: document type used for indexing into a search index, "document" by default.
-    def type
-      self.class.type
     end
 
     # Public: Content of the latest revision in the 'master' state, or content updated
@@ -114,8 +110,8 @@ module Colonel
 
       revision.write!(repository, ref)
 
-      index.register(id, type)
-      self.class.search_provider.index!(self, revision, state, {name: :save, to: state}) if self.class.search_provider
+      index.register(id, type.type)
+      search_provider.index!(self, revision, state, {name: :save, to: state}) if search_provider
 
       revision
     end
@@ -141,7 +137,7 @@ module Colonel
       revision = Revision.new(self, origin.content, author, message, timestamp, previous, origin)
       oid = revision.write!(repository, ref)
 
-      self.class.search_provider.index!(self, revision, to, {name: :promotion, to: to}) if self.class.search_provider
+      search_provider.index!(self, revision, to, {name: :promotion, to: to}) if search_provider
 
       revision
     end
@@ -173,90 +169,23 @@ module Colonel
       @index ||= self.class.index
     end
 
+    def search_provider
+      type.search_provider
+    end
+
     # Class methods
     class << self
-
-      # Public: Open the document specified by `id`, optionally at a revision `rev`
-      #
-      # id  - id of the document
-      # rev   - revision to load (optional)
-      #
-      # Returns a Document instance
-      def open(id, rev = nil)
-        begin
-          unless Colonel.config.rugged_backend.nil?
-            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, id), backend: Colonel.config.rugged_backend)
-          else
-            repo = Rugged::Repository.bare(File.join(Colonel.config.storage_path, id))
-          end
-        rescue Rugged::OSError
-          return nil
-        end
-
-        new(nil, id: id, repo: repo)
-      end
-
-      def list(opts = {})
-        search_provider.list(opts)
+      def list(*args)
+        DocumentType.get('document').list(*args)
       end
 
       def search(*args)
-        search_provider.search(*args)
+        DocumentType.get('document').search(*args)
       end
 
-      # Public: get the search provider
-      def search_provider
-        return nil if @search_provider && !@search_provider.is_a?(ElasticsearchProvider)
-
-        @search_provider ||= ElasticsearchProvider.new(@index_name, type, @custom_mapping, @scopes)
+      def open(*args)
+        DocumentType.get('document').open(*args)
       end
-
-      # Public: change the search provider. Pass nil to turn searching and indexing off
-      def search_provider=(provider)
-        @search_provider = provider
-      end
-
-      # Public: document type used by search and DocumentIndex
-      def type
-        @type || 'document'
-      end
-
-      # Search configuration API
-
-      # Public: override the type name (use when subclassing)
-      def type_name(name)
-        @type = name
-      end
-
-      # Public: override index name (use when subclassing)
-      def index_name(name)
-        @index_name = name
-      end
-
-      # Public: Set custom mapping for your content structure. Yields to a block that
-      # should return a hash with the attributes mapping.
-      #
-      # Examples
-      #
-      #   attributes_mapping do
-      #     {
-      #       tags: {
-      #         type: "string",
-      #         index: "not_analyzed", # we only want exact matches
-      #         boost: 2 # boost tags when searching
-      #       }
-      #     }
-      #   end
-      def attributes_mapping(&block)
-        @custom_mapping = yield
-      end
-
-      def scope(name, predicates)
-        @scopes ||= {}
-        @scopes[name] = predicates
-      end
-
-      # Internal methods
 
       # Internal: Document index to register the document with when saving to keep track of it
       def index

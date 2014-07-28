@@ -8,18 +8,19 @@ module Colonel
       # documents       - array of document instances to (re)index
       #
       # returns nothing
-      def index(documents)
-        classes = documents.map(&:class)
-        ElasticsearchProvider.initialize!(*classes)
+      def index(documents, index_name = nil)
+        ElasticsearchProvider.initialize!
 
         documents.each do |document|
-          ElasticsearchProvider.es_client.bulk body: document_commands(document)
+          cmds = document_commands(document, index_name)
+
+          ElasticsearchProvider.es_client.bulk body: cmds
         end
       end
 
       # Internal: get index commands for elasticsearch for a single document instance
-      def document_commands(document)
-        klass = document.class
+      def document_commands(document, index_name = nil)
+        type = document.type
 
         rev_indexes = []
         state_indexes = {}
@@ -35,7 +36,7 @@ module Colonel
               to: state
             }
 
-            sp = klass.search_provider
+            sp = type.search_provider
             cmds = sp.index_commands(document, r, state, event)
 
             # add or update the index commands for documents
@@ -56,6 +57,9 @@ module Colonel
 
                 custom_indexes[name] = cmd if custom_updated_at.nil? || updated_at > custom_updated_at
               end
+
+              # override the index, if requested
+              cmd[:index][:_index] = index_name if index_name
             end
           end
         end

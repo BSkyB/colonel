@@ -2,6 +2,9 @@ require "rugged"
 require 'elasticsearch'
 require "colonel/version"
 
+require "colonel/document_type"
+require "colonel/document_type_dsl"
+
 require "colonel/document"
 
 require "colonel/revision"

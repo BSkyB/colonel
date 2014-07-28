@@ -31,7 +31,7 @@ Feature: Backup and restore
       | Second document |
       | Third document  |
     When I dump documents into a file named "test-dump.col"
-    And I remove all files in the storag
+    And I remove all files in the storage
     And I restore documents from a file named "test-dump.col"
     And I list all documents in the document index
     Then I should get the following documents:

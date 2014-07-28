@@ -26,11 +26,9 @@ Feature: Reindex content to Elasticsearch
       | Third document  |
 
   Scenario: Reindex custom type
-    Given the following class:
+    Given the following configuration:
       """
-      class Article < Colonel::Document
-        type_name 'article'
-
+      Article = Colonel::DocumentType.new('article') do
         attributes_mapping do
           {
             stringid: {
