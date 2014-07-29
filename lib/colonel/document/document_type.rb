@@ -1,3 +1,5 @@
+require "colonel/document/document_type_dsl"
+
 module Colonel
   class DocumentType
     attr_reader :type, :index_name, :custom_mapping, :scopes
