@@ -19,7 +19,9 @@ describe Document do
   end
 
   before(:all) do
-    Document.search_provider = :none # turn off search
+    Colonel::DocumentType.new('document') do
+      search_provider :none # turn off search
+    end
   end
 
   describe "creation" do
@@ -230,7 +232,7 @@ describe Document do
       allow(Revision).to receive(:new).and_return(revision)
       allow(revision).to receive(:write!)
 
-      expect(document.index).to receive(:register).with(document.id, document.type).and_return(true)
+      expect(document.index).to receive(:register).with(document.id, document.type.type).and_return(true)
 
       rev = document.save!({ email: 'colonel@example.com', name: 'The Colonel' }, 'save from the colonel', time)
       expect(rev).to eq(revision)
@@ -262,7 +264,7 @@ describe Document do
 
     it "should open the repository and get content for master" do
       expect(Rugged::Repository).to receive(:bare).with("storage/test").and_return(repo)
-      expect(Document).to receive(:new).with(nil, {id: 'test', repo: repo}).and_return(document)
+      expect(Document).to receive(:new).with(nil, {id: 'test', repo: repo, type: DocumentType.get('document')}).and_return(document)
       expect(document.revisions).to receive(:[]).with('master').and_return(revision)
       expect(revision).to receive(:content).and_return(Content.new({content: 'foo'}))
 
