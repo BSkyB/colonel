@@ -1,5 +1,15 @@
 
 module Colonel
+  # Public: Elasticsearch provider for documents. This handles all the indexing and searching using
+  # Elasticsearch. Documents are indexed on each `save` or `promote!` call.
+  #
+  # Each DocumentType has it's own instance of ElasticsearchProvider with a configuration for the
+  # type (index_name, type_name, attributes_mapping and scopes).
+  #
+  # You can initialize the search support by calling `ElasticsearchProvider.initialize!` *after*
+  # defining all your types.
+  #
+  # If you need to, you can run raw elasticsearch queries using `ElasticsearchProvider.es_client`
   class ElasticsearchProvider
 
     attr_reader :index_name, :type_name, :item_mapping, :revision_mapping, :scopes
@@ -131,6 +141,7 @@ module Colonel
         # for all specified classes
         DocumentType.all.each do |type_name, type|
           sp = type.search_provider
+          next unless sp
 
           # ensure index existence and update mapping
           ensure_index!(sp.index_name, sp.type_name, sp.revision_type_name, sp.item_mapping, sp.revision_mapping, sp.scopes)

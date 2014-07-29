@@ -1,6 +1,10 @@
 require "colonel/document/document_type_dsl"
 
 module Colonel
+  # Public: DocumentType allows you to define custom types of documents and override
+  # default search configuration - attributes mapping, index name and scope
+  #
+  # See `DocumentTypeDSL` for information about configuring the type
   class DocumentType
     attr_reader :type, :index_name, :custom_mapping, :scopes
 
@@ -56,21 +60,27 @@ module Colonel
       Document.new(nil, id: id, repo: repo, type: self)
     end
 
+    # Public: List all the documents of this type. See ElasticsearchProvider#list
     def list(opts = {})
       search_provider.list(opts)
     end
 
+    # Public: Search documents of this type. See ElasticsearchProvider#search
     def search(*args)
       search_provider.search(*args)
     end
 
     class << self
+      # Internal: Register a new type for a given name
       def register(type_name, type)
         @types ||= {}
 
         @types[type_name] = type
       end
 
+      # Public: Get the DocumentType instance for a nem
+      #
+      # type_name - string, name of the type, e.g. 'document'
       def get(type_name)
         @types ||= {}
         register_default unless @types['document']
@@ -81,6 +91,9 @@ module Colonel
         type
       end
 
+      # Public: Iterate through all the known types
+      #
+      # Returns an iterator if no block is passed, otherwise yields a (name, type) pair to the block
       def all(&block)
         to_enum(:all) unless block_given?
 

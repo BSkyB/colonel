@@ -1,10 +1,17 @@
 
 module Colonel
+  # Public: Results from elasticsearch. This is just an enumerable wrapper for the hash coming
+  # out of the Elasticsearch API. Instead of just plain hashes it retuns Document instances.
+  #
+  # When you need high performance (e.g. listing many results) and don't need full Document
+  # instances, you can use `raw`, which returns just plain `Content` without touching the
+  # git backend.
   class ElasticsearchResultSet
     include Enumerable
 
     attr_reader :total, :facets
 
+    # Internal: Create a new result set
     def initialize(results)
       @total  = results["hits"]["total"]
       @max_score = results["hits"]["max_score"]
@@ -13,7 +20,7 @@ module Colonel
       @facets = results["facets"]
     end
 
-    # Public: raw results
+    # Public: Iterate over raw results
     def raw(&block)
       return to_enum(:raw) unless block_given?
 
@@ -22,7 +29,7 @@ module Colonel
       end
     end
 
-    # Public: iterate through results
+    # Public: iterate over returned Documents
     def each(&block)
       return to_enum(:each) unless block_given?
 

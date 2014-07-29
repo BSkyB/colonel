@@ -144,7 +144,7 @@ module Colonel
 
     # Internal methods
 
-    # Internal: The Rugged repository object for the given document
+    # Internal: The Rugged repository for the given document
     def repository
       unless Colonel.config.rugged_backend.nil?
         @repo ||= Rugged::Repository.init_at(File.join(Colonel.config.storage_path, id), :bare, backend: Colonel.config.rugged_backend)
@@ -153,7 +153,7 @@ module Colonel
       end
     end
 
-    # Internal: Initialise the repository, creating a tagged root revision
+    # Internal: Initialize the repository, creating a tagged root revision
     def init_repository(repository, timestamp = Time.now)
       return if revisions.root_revision
 
