@@ -3,6 +3,7 @@ require "base64"
 module Colonel
   # Public: a serialization tool for Colonel::Document
   class Serializer
+    class SerializerError < RuntimeError; end;
 
     class << self
 
@@ -49,7 +50,6 @@ module Colonel
       def load(stream, &block)
         # FIXME improve this method, it has a multitude of small issues...
         # - empty file will cause a crash
-        # - change RuntimeError into a more specific exception type
 
         document = nil
         type = nil
@@ -69,7 +69,7 @@ module Colonel
             id = $~[1]
             type = $~[2]
 
-            raise RuntimeError, "Malformed document header" if id.empty? || type.empty?
+            raise SerializerError, "Malformed document header" if id.empty? || type.empty?
 
             type = DocumentType.get(type)
             document = Document.new(nil, id: id, type: type)
