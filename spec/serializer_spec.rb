@@ -28,8 +28,14 @@ describe Serializer do
     let :document do
       double(:document).tap do |doc|
         allow(doc).to receive(:repository).and_return(repository)
-        allow(doc).to receive(:name).and_return("testdoc")
-        allow(doc).to receive(:type).and_return("test-type")
+        allow(doc).to receive(:id).and_return("testdoc")
+        allow(doc).to receive(:type).and_return(type)
+      end
+    end
+
+    let :type do
+      double(:type).tap do |it|
+        allow(it).to receive(:type).and_return("test-type")
       end
     end
 
@@ -118,8 +124,6 @@ describe Serializer do
     end
 
     it "should serialize a document with a single edit" do
-      pending "fix for new API"
-
       refs = [master, root_tag]
       allow(refs).to receive(:[]).with("refs/tags/root").and_return(root_tag)
 
