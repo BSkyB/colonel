@@ -1,14 +1,17 @@
 # The Colonel
 
-Git backed content storage library for ruby.
+Versioned content storage library for ruby.
 
-The Colonel is essentially a NoSQL database which supports versioned structured content storage with a publishing workflow (currently draft (master) -> published) and automatic indexing for querying and search (full-text).
+The Colonel is a versioned document storage library, publishing workflow support and and automatic indexing for querying and search (full-text). It is meant to serve as a backend for applications that store user editable documents in a
+multi-user environment. (These are usually called Content Management Systems, but the term is too general to just throw around).
+
+Internally, The Colonel uses git for storage and Elasticsearch for search and querying. By default it saves to disk, but it also supports alternative backends.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
-    gem 'colonel', git: 'git://github.com/bskyb-commerce/colonel.git
+    gem 'colonel', git: 'git://github.com/bskyb-commerce/colonel.git, tag: `[version_you_want]`
 
 And then execute:
 
@@ -17,6 +20,9 @@ And then execute:
 ### Dependencies
 
 The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 to work.
+
+NOTE: The Colonel currently doesn't work with elasticsearch 1.2 or later, which is a known issue
+that will be fixed soon. (Watch issue [#44](https://github.com/bskyb-commerce/colonel/issues/44))
 
 ## Usage
 
@@ -42,15 +48,15 @@ Colonel.config.elasticsearch_uri = 'elasticsearch.myapp.com:9200'
 Colonel.config.rugged_backend = backend_instance # optional, see below
 ```
 
-### Create or open a ContentItem
+### Create or open a Document
 
 You can start using The Colonel without deriving your own content type. It can handle any kind
 of content structure and has sensible defaults for indexing.
 
-To create a new ContentItem just create a new instance of the class
+To create a new document just create a new instance of the class
 
 ```ruby
-doc = ContentItem.new({title: 'My Item', tags: ['Test', 'Content'], body: 'Some text.'})
+doc = Document.new({title: 'My Item', tags: ['Test', 'Content'], body: 'Some text.'})
 ```
 
 You can now access the attributes
@@ -70,21 +76,20 @@ doc.id
 # => 'b1ff909250a5fda83042abc86f7033f9' # randomly generated
 ```
 
-And you can also save the item, you are required to supply an author with an optional message and timestamp paramater. For example you can do the following:
+You can save the document, creating a revision. You have to supply an author with an optional message and timestamp paramater. For example you can do the following:
 
 ```ruby
 doc.save!({ name: 'The Colonel', email: 'colonel@example.com' })
 ```
 
-
 or using the optional parameters:
 
 ```ruby
-doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My save message.')
-doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My save message.', Time.now)
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'Totally saved this.')
+doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'Totally saved this just now.', Time.now)
 ```
 
-You now have an item that has a single revision in `master` state (draft). You can
+You now have an document that has a single revision in `master` state (draft). You can
 update the document's content and save again with or without a commit message.
 
 ```ruby
@@ -100,13 +105,14 @@ doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My comment for
 ```
 
 The document now has two revisions. Every save creates a new revision. All saves
-update the `master` state (draft).
+update the `master` state (default, draft). There is also a `save_in!` method when you absolutely need to
+save into a different state.
 
 To open the document later do
 
 ```ruby
-ContentItem.open('b1ff909250a5fda83042abc86f7033f9')
-# => #<ContentItem:9656a765>
+Document.open('b1ff909250a5fda83042abc86f7033f9')
+# => #<Document ...>
 ```
 
 ### Promoting draft to published
@@ -118,53 +124,58 @@ doc.promote!('master', 'published', { name: 'The Colonel', email: 'colonel@examp
 ```
 
 That takes the current revision of `master` and creates a `published` revision from it.
-You can continue editing and saving and the preview will be kept the same, until you
-call `promote!` again.
+You can continue editing and saving and the published revision will be kept the same, until you
+call `promote!` again. You can view the published revision using
+
+```ruby
+revision = doc.revisions['published'] # => #<Revision ...>
+revision.content # => published content
+```
 
 There is no possibility to drop a revision from either state. The Colonel is only moving
 forward. If you need to take the content down entirely for any reason, you need to implement
 it as an application level concept.
 
-
 ### Viewing version history
 
 ```ruby
-doc.history('published')
-# => [{:rev => 'fb8d8b4369c084668ab8c62cc50dbc184ff23cc', ... }, {...}, ...]
+doc.history('published').each do |rev|
+  # rev is a Revision
+end
 ```
 
-Will give you a history of all published versions of the item, skipping the intermediate
-draft versions. Passing `master` will do the same with preview versions skipping draft
-versions.
+Will give you a history of all published versions of the document, skipping the draft versions.
+Passing `master` will do the same with preview versions skipping draft versions. You can call
+history without an argument - the default is `master`.
 
 ### Showing content at a given revision / state
 
-You can load any revision of the existing item by it's sha1 or the state name
+You can get any revision of the existing document by it's sha1 or the state name
 
 ```ruby
-doc.load!('fb8d8b4369c084668ab8c62cc50dbc184ff23cc')
-doc.load!('published')
-```
-
-You can also open an item specifying the revision/state
-
-```ruby
-ContentItem.open('b1ff909250a5fda83042abc86f7033f9', 'published')
+doc.revisions['fb8d8b4369c084668ab8c62cc50dbc184ff23cc']
+doc.revisions['published']
 ```
 
 ### Listing and searching
 
-You can list all the content items using the `list` class method. It supports sorting and
+You can list all the documents using the `list` method. It supports sorting and
 pagination.
 
 ```ruby
-ContentItem.list(state: 'published', size: 10, from: 50, sort: {updated_at: 'desc'})
-# => { total: 43, hits: [ ... ContentItem instances ... ] }
+results = Document.list(state: 'published', size: 10, from: 50, sort: {updated_at: 'desc'})
+# => #<ElasticsearchResultSet ...>
+
+results.total # => 67
+results.each do |result|
+  # result is a Document
+end
 ```
 
 If you need more than that, you can search across all of the content. You can do a simple query string search or you can provide a query object (ElasticSearch Query DSL) for more complex searches.  There are two arguments the `query` and optional `opts`.
 
 ##### Opts
+
 * `size` - Size for a single page
 * `from` - Start from a certain number of results
 * `latest` - Denotes searching across only the current state of a document rather than including its revisions.
@@ -183,12 +194,13 @@ query = {
   }
 }
 
-ContentItem.search(query, { size: 10 })
+Document.search(query, { size: 10 })
 ```
 
 #### Query using strings
+
 ```ruby
-ContentItem.search('How to use the Colonel?', { size: 10 })
+Document.search('How to use the Colonel?', { size: 10 })
 ````
 
 The query can be either a string or a Hash. It gets passed through to the underlying Elasticsearch
@@ -222,13 +234,12 @@ DocumentItem.search('state:published', scope: 'visible')
 
 ### Custom content type
 
-In most cases you'd want to derive from the content item and create your own content type.
-That allows you to customize the Elasticsearch indexing options
+In most cases you'd want to create your own content type. That allows you to customize the Elasticsearch
+indexing options
 
 ```ruby
-class DocumentItem < Colonel::ContentItem
+Document = Colonel::DocumentType.new('document')
   index_name 'colonel-app'
-  item_type_name 'document'
 
   attributes_mapping do
     {
@@ -248,7 +259,7 @@ end
 
 ### Alternative backends
 
-Internally, Colonel uses rugged for content item storage. Apart from the default file storage it supports
+Internally, Colonel uses rugged for document storage. Apart from the default file storage it supports
 alternative storage backends for rugged. For example, you could use [rugged-redis](http://github.com/redbadger/rugged-redis) to store to redis.
 
 To set the backend, use the configuration
@@ -260,165 +271,9 @@ redis_backend = Rugged::Redis::Backend.new(host: '127.0.0.1', port: 6379, passwo
 Colonel.config.rugged_backend = redis_backend
 ```
 
-### Integrating with ActiveModel
+## Documentation
 
-Typicaly, you'd want to treat your content items as ActiveModel instances to integrate well
-with Ruby on Rails. The best option is probably to have your ContentItem instance as an instance
-variable in it.
-
-An example implementation could look like this
-
-```ruby
-class Document
-  include ActiveModel::Model
-  include ActiveModel::Validations
-
-  def initialize(attributes = {}, opts = {})
-    if opts[:document]
-      @document = opts[:document]
-      return
-    end
-
-    @new_record = true
-
-    @document = DocumentItem.new({})
-    attributes.each do |k, v|
-      send("#{k}=", v)
-    end
-  end
-
-  # Attributes
-
-  def title
-    @document.title
-  end
-
-  def title=(val)
-    @document.title = val
-  end
-
-  def tags
-    @document.tags || []
-  end
-
-  def tags=(val)
-    val = [] if val.nil?
-    val = val.split(/\s*,\s*/).map { |t| t.strip } if val.is_a?(String)
-
-    @document.tags = val
-  end
-
-  def body
-    @document.body
-  end
-
-  def body=(val)
-    @document.body = val
-  end
-
-  # Lifecycle
-
-  def save
-    @new_record = false
-    @document.save!(Time.now)
-  end
-
-  def update(opts)
-    opts.each do |k, v|
-      send("#{k}=", v)
-    end
-
-    save
-  end
-
-  # Revisions & States
-
-  def versions(state, &block)
-    @document.history(state, &block).map do |rev|
-      rev[:was_published] = published?(rev[:rev])
-      rev
-    end
-  end
-
-  def at_revision(rev)
-    doc = @document.clone
-    doc.load!(rev)
-
-    self.class.new(nil, document: doc)
-  end
-
-  # States
-
-  def publish!
-    @document.promote!('master', 'published', 'publish from the colonel', Time.now)
-  end
-
-  def draft_rev
-    @document.history('master') do |c|
-      return c[:rev]
-    end
-  end
-
-  # returns the first draft rev that was later published
-  def published_rev
-    @document.history('master') do |c|
-      return c[:rev] if published?(c[:rev])
-    end
-  end
-
-  def published?(rev = nil)
-    rev ||= @document.revision
-    @document.has_been_promoted?('published', rev)
-  end
-
-  # Active Model
-
-  def persisted?
-    !@new_record
-  end
-
-  def to_key
-    [@document.id]
-  end
-
-  def to_param
-    @document.id
-  end
-
-  class << self
-    def all(opts = {})
-      in_state('master', opts)
-    end
-
-    def published(opts = {})
-      in_state('published', opts)
-    end
-
-    def in_state(state, opts = {})
-      list_opts = {state: state}.merge(opts)
-
-      hits = DocumentItem.list(list_opts)
-      docs = hits[:hits].map do |hit|
-        Document.new(nil, document: hit)
-      end
-
-      [docs, hits[:total]]
-    end
-
-    def find(name, state = 'master')
-      item = DocumentItem.open(name)
-      return nil unless item
-
-      item.load!(state) unless state == 'master'
-
-      Document.new(nil, document: item)
-    end
-  end
-end
-```
-
-This is indeed quite verbose, but most of the more general things will be abstracted into a mixin
-in the near future. Stay tuned.
+See the <features> folder for more detailed documentation.
 
 ## Internals
 
@@ -449,7 +304,7 @@ Revision
 ```ruby
 {
   _source: { enabled: false }, # you only get what you store
-  _parent: { type: item_type_name },
+  _parent: { type: type_name },
   properties: {
     # _id is "{id}-{rev}"
     id: {
