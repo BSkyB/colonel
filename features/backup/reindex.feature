@@ -29,7 +29,7 @@ Feature: Reindex content to Elasticsearch
     Given the following configuration:
       """
       Article = Colonel::DocumentType.new('article') do
-        attributes_mapping do
+        attributes_mapping(
           {
             stringid: {
               type: :string,
@@ -40,7 +40,7 @@ Feature: Reindex content to Elasticsearch
               analyzer: :whitespace
             }
           }
-        end
+        )
       end
       """
     And documents of class "Article" with content:

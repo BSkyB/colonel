@@ -20,7 +20,7 @@ describe Document do
 
   before(:all) do
     Colonel::DocumentType.new('document') do
-      search_provider :none # turn off search
+      search_provider_class :none # turn off search
     end
   end
 

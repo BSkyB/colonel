@@ -5,7 +5,7 @@ module Colonel
 
     # Internal: create a new DSL instance
     def initialize
-      @config = Struct.new(:search_provider, :index_name, :custom_mapping, :scopes).new
+      @config = Struct.new(:search_provider_class, :index_name, :custom_mapping, :scopes).new
       @config.scopes = {}
     end
 
@@ -14,9 +14,9 @@ module Colonel
     #
     # Example
     #
-    #   `search_provider :none`
-    def search_provider(provider)
-      config.search_provider = provider
+    #   `search_provider_class :none`
+    def search_provider_class(provider_class)
+      config.search_provider_class = provider_class
     end
 
     # Public: Set special index name for this type
@@ -29,17 +29,15 @@ module Colonel
     #
     # Examples
     #
-    #   attributes_mapping do
-    #     {
-    #       tags: {
-    #         type: "string",
-    #         index: "not_analyzed", # we only want exact matches
-    #         boost: 2 # boost tags when searching
-    #       }
+    #   attributes_mapping({
+    #     tags: {
+    #       type: "string",
+    #       index: "not_analyzed", # we only want exact matches
+    #       boost: 2 # boost tags when searching
     #     }
-    #   end
-    def attributes_mapping(&block)
-      config.custom_mapping = yield
+    #   })
+    def attributes_mapping(custom_mapping)
+      config.custom_mapping = custom_mapping
     end
 
     # Public: Define custom scopes

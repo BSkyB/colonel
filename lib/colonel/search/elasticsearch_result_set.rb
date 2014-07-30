@@ -12,7 +12,9 @@ module Colonel
     attr_reader :total, :facets
 
     # Internal: Create a new result set
-    def initialize(results)
+    def initialize(results, document_type)
+      @document_type = document_type
+
       @total  = results["hits"]["total"]
       @max_score = results["hits"]["max_score"]
       @hits   = results["hits"]["hits"]
@@ -34,7 +36,7 @@ module Colonel
       return to_enum(:each) unless block_given?
 
       @hits.each do |hit|
-        yield Document.open(hit["_source"]["id"])
+        yield @document_type.open(hit["_source"]["id"])
       end
     end
   end

@@ -15,7 +15,7 @@ module Colonel
       dsl.instance_eval(&block) if block_given?
 
       @index_name = dsl.config.index_name
-      @search_provider = dsl.config.search_provider
+      @search_provider_class = dsl.config.search_provider_class || ElasticsearchProvider
       @custom_mapping = dsl.config.custom_mapping
       @scopes = dsl.config.scopes
 
@@ -24,9 +24,10 @@ module Colonel
 
     # Public: get the search provider
     def search_provider
-      return nil if @search_provider && !@search_provider.is_a?(ElasticsearchProvider)
+      return @search_provider unless @search_provider.nil?
+      return nil unless @search_provider_class.is_a?(Class)
 
-      @search_provider ||= ElasticsearchProvider.new(index_name, type, custom_mapping, scopes)
+      @search_provider = @search_provider_class.new(index_name, self, custom_mapping, scopes)
     end
 
     # Public: create a new document

@@ -27,7 +27,7 @@ Feature: custom type name and mappings
     Given the following configuration:
       """
       Article = Colonel::DocumentType.new('article') do
-        attributes_mapping do
+        attributes_mapping(
           {
             stringid: {
               type: :string,
@@ -38,7 +38,7 @@ Feature: custom type name and mappings
               analyzer: :whitespace
             }
           }
-        end
+        )
       end
       """
     And documents of class "Article" with content:
@@ -63,4 +63,3 @@ Feature: custom type name and mappings
       | text           | stringid   | tags      |
       | Second article | second_one | red green |
       | Third article  | third_one  | pink blue |
-

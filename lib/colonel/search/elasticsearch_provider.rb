@@ -12,19 +12,23 @@ module Colonel
   # If you need to, you can run raw elasticsearch queries using `ElasticsearchProvider.es_client`
   class ElasticsearchProvider
 
-    attr_reader :index_name, :type_name, :item_mapping, :revision_mapping, :scopes
+    attr_reader :index_name, :type, :item_mapping, :revision_mapping, :scopes
 
-    def initialize(index_name, type_name, custom_mapping = nil, scopes = nil)
+    def initialize(index_name, type, custom_mapping = nil, scopes = nil)
       @index_name = (index_name || Colonel.config.index_name).to_s
-      @type_name = type_name.to_s
+      @type = type
 
       @item_mapping = self.class.default_item_mapping
       @item_mapping[:properties] = @item_mapping[:properties].merge(custom_mapping) if custom_mapping
 
-      @revision_mapping = self.class.default_revision_mapping(@type_name)
+      @revision_mapping = self.class.default_revision_mapping(type_name)
       @revision_mapping[:properties] = @revision_mapping[:properties].merge(custom_mapping) if custom_mapping
 
       @scopes = scopes || []
+    end
+
+    def type_name
+      type.type
     end
 
     def revision_type_name
@@ -84,7 +88,7 @@ module Colonel
 
       res = es_client.search(index: index_name, type: item_type, body: body)
 
-      ElasticsearchResultSet.new(res)
+      ElasticsearchResultSet.new(res, type)
     end
 
     # Public: Index the content in elasticsearch. Creates a document for the revision and updates the document

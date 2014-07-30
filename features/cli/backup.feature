@@ -21,7 +21,7 @@ Feature: Backup & Restore through CLI
     Given the following configuration:
       """
       Article = Colonel::DocumentType.new('article') do
-        attributes_mapping do
+        attributes_mapping(
           {
             stringid: {
               type: :string,
@@ -32,7 +32,7 @@ Feature: Backup & Restore through CLI
               analyzer: :whitespace
             }
           }
-        end
+        )
       end
       """
     And the following .colonel file:
@@ -40,7 +40,7 @@ Feature: Backup & Restore through CLI
       Colonel.config.index_name = 'colonel-test'
 
       Article = Colonel::DocumentType.new('article') do
-        attributes_mapping do
+        attributes_mapping(
           {
             stringid: {
               type: :string,
@@ -51,7 +51,7 @@ Feature: Backup & Restore through CLI
               analyzer: :whitespace
             }
           }
-        end
+        )
       end
       """
     And the following documents:
@@ -85,4 +85,3 @@ Feature: Backup & Restore through CLI
       | text           | stringid   | tags      |
       | Second article | second_one | red green |
       | Third article  | third_one  | pink blue |
-

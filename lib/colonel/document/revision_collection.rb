@@ -4,7 +4,7 @@ module Colonel
   # name and keeps track of the internal root revision
   class RevisionCollection
     ROOT_REF = 'refs/tags/root'.freeze
-    SHA1 = /^[0-9a-f]{40}$/
+    SHA1_REGEX = /^[0-9a-f]{40}$/
 
     # Internal: Creates a new collection for a document. You should never
     # need to call this method directly
@@ -20,7 +20,7 @@ module Colonel
     # will be returned.
     def [](rev)
       return nil if rev == root_commit_oid
-      return Revision.from_commit(@document, rev) if rev =~ SHA1
+      return Revision.from_commit(@document, rev) if rev =~ SHA1_REGEX
 
       ref = @document.repository.references["refs/heads/#{rev}"]
       return nil unless ref && ref.target_id != root_commit_oid
