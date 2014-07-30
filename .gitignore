@@ -1,3 +1,4 @@
+.vagrant
 *.gem
 *.rbc
 .bundle
@@ -16,4 +17,7 @@ test/version_tmp
 tmp
 .DS_Store
 
-storage
+.colonel
+/storage
+/test-storage
+backup.col

@@ -3,6 +3,7 @@ require "base64"
 module Colonel
   # Public: a serialization tool for Colonel::Document
   class Serializer
+    class SerializerError < RuntimeError; end;
 
     class << self
 
@@ -13,7 +14,7 @@ module Colonel
       def generate(documents, ostream)
         documents = [documents] unless documents.respond_to?(:each)
         documents.each do |document|
-          ostream.puts "document: #{document.name} #{document.type}"
+          ostream.puts "document: #{document.id} #{document.type.type}"
           ostream.puts "objects:"
 
           repo = document.repository
@@ -49,8 +50,6 @@ module Colonel
       def load(stream, &block)
         # FIXME improve this method, it has a multitude of small issues...
         # - empty file will cause a crash
-        # - change RuntimeError into a more specific exception type
-        # - name $~ for clearer code
 
         document = nil
         type = nil
@@ -67,12 +66,14 @@ module Colonel
               yield document if block_given?
             end
 
-            name = $~[1]
+            id = $~[1]
             type = $~[2]
 
-            raise RuntimeError, "Malformed document header" if name.empty? || type.empty?
+            raise SerializerError, "Malformed document header" if id.empty? || type.empty?
 
-            document = Document.new(type, name)
+            type = DocumentType.get(type)
+            document = Document.new(nil, id: id, type: type)
+
             repo = document.repository
           when /^references:$/
             raise RuntimeError, "Malformed document, unexpected references section" unless reading == :object
@@ -124,8 +125,7 @@ module Colonel
       end
 
       def finalize_document(document, type)
-        document.load!
-        document.index.register(document.name, type)
+        document.index.register(document.id, type.type)
 
         document
       end

@@ -51,6 +51,20 @@ describe Content do
 
       expect(c.foobar).to be_nil
     end
+
+    it "should set using an explicit setter" do
+      c = Content.new({})
+      c.set("foo", "bar")
+
+      expect(c.foo).to eq("bar")
+    end
+
+    it "should get using an explicit getter" do
+      c = Content.new({})
+      c.foo = "bar"
+
+      expect(c.get("foo")).to eq("bar")
+    end
   end
 
   describe "update" do

@@ -1,14 +1,22 @@
-require "rugged"
+require 'rugged'
 require 'elasticsearch'
-require "colonel/version"
+require 'colonel/version'
 
-require "colonel/document"
-require "colonel/document_index"
-require "colonel/content"
-require "colonel/content_item"
+require 'colonel/document'
+require 'colonel/document/document_type'
 
-require "colonel/serializer"
-require "colonel/indexer"
+require 'colonel/document/content'
+
+require 'colonel/document/revision'
+require 'colonel/document/revision_collection'
+
+require 'colonel/document_index'
+
+require 'colonel/search/elasticsearch_provider'
+require 'colonel/search/elasticsearch_result_set'
+
+require 'colonel/serializer'
+require 'colonel/indexer'
 
 module Colonel
   # Public: Sets configuration options.
