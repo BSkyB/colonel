@@ -131,7 +131,7 @@ module Colonel
       end
 
       def read_reference(repo, ref)
-        ref = load_hash(ref) rescue raise(RuntimeError, "expected reference, found: #{line}")
+        ref = load_hash(ref) rescue raise(RuntimeError, "expected reference, found: #{ref}")
 
         if repo.references[ref['name']]
           repo.references.update(ref["name"], ref["target"])
@@ -141,10 +141,10 @@ module Colonel
       end
 
       def read_object(repo, obj)
-        obj = load_hash(obj) rescue raise(RuntimeError, "expected object, found: #{line}")
+        obj = load_hash(obj) rescue raise(RuntimeError, "expected object, found: #{obj}")
         data = Base64.strict_decode64(obj['data'])
 
-        raise RuntimeError, "Data length mismatch! dump: #{obj["len"]}, actuall: #{data.bytesize}" unless data.bytesize == obj['len']
+        raise RuntimeError, "Data length mismatch! dump: #{obj["len"]}, actual: #{data.bytesize}" unless data.bytesize == obj['len']
 
         oid = repo.write(data, obj['type'].to_sym)
         raise RuntimeError, "oid mismatch! read: #{obj["oid"]}, got: #{oid}" unless oid == obj['oid']
