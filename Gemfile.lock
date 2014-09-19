@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/redbadger/rugged.git
-  revision: fc8eac34341a74ca9b545bfa79be754ec55131dd
+  revision: aaf9fd8ea84ce4920d901109641599e5b2186bcf
   branch: backends
   submodules: true
   specs:
