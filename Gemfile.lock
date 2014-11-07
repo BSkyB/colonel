@@ -1,10 +1,10 @@
 GIT
   remote: git://github.com/redbadger/rugged.git
-  revision: 3854d1a2c4ea77f8e47a92cbd71874543b32711d
+  revision: 6a1085acc4716c31f3fb354d88fab7157f65d3ba
   branch: backends
   submodules: true
   specs:
-    rugged (0.21.1b0)
+    rugged (0.21.1b2)
 
 PATH
   remote: .
