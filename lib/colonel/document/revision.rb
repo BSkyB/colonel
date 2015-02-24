@@ -114,6 +114,11 @@ module Colonel
       @origin = orig
     end
 
+    # Public: Revision equality check by id.
+    def ==(other)
+      id == (other && other.id)
+    end
+
     # Public: Checks whether a revision is the internal root revision which provides
     # regularity to the revision graph and simplifies searches.
     def root?
@@ -134,10 +139,11 @@ module Colonel
     # to  - the final state of the promotion
     def has_been_promoted?(to)
       rev = @document.revisions[to]
+      return false if rev.nil?
 
       rev.has_ancestor?(:previous) do |p_rev|
         p_rev.has_ancestor?(:origin) do |o_rev|
-          o_rev && o_rev.id == self.id
+          o_rev && o_rev == self
         end
       end
     end

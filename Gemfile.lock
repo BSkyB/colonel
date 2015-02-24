@@ -9,7 +9,7 @@ GIT
 PATH
   remote: .
   specs:
-    colonel (0.5.1)
+    colonel (0.5.4)
       elasticsearch (~> 1.0.0)
 
 GEM
@@ -39,7 +39,7 @@ GEM
     elasticsearch-transport (1.0.6)
       faraday
       multi_json
-    faraday (0.9.0)
+    faraday (0.9.1)
       multipart-post (>= 1.2, < 3)
     gherkin (2.12.2)
       multi_json (~> 1.3)

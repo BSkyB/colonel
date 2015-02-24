@@ -56,6 +56,13 @@ describe Revision do
     expect(revision.root?).to eq(true)
   end
 
+  it "can check equality by id" do
+    rev1 = Revision.new(document, Content.new(nil), "author", "message 1", time, nil, nil, nil, "id1")
+    rev2 = Revision.new(document, Content.new(nil), "author", "message 2", time, nil, nil, nil, "id1")
+
+    expect(rev1).to eq(rev2)
+  end
+
   describe "history links" do
     it "returns previous when set" do
       revision = Revision.new(document, Content.new(nil), "author", "message", time, "prev")
@@ -101,7 +108,7 @@ describe Revision do
       expect(revision.origin).to be_nil
     end
 
-  it "returns nil when commit doesn't have origin" do
+    it "returns nil when commit doesn't have origin" do
       commit = double(:commit).tap do |it|
         allow(it).to receive(:is_a?).with(String).and_return(false)
         allow(it).to receive(:is_a?).with(Rugged::Commit).and_return(true)
@@ -137,6 +144,59 @@ describe Revision do
 
       expect(revision.origin).to be_a(Revision)
       expect(revision.origin.id).to eq("origin")
+    end
+  end
+
+  describe "history traversal" do
+    describe "#has_been_promoted?" do
+      let :document do
+        Colonel::Document.new({})
+      end
+
+      let :draft_revisions do
+        m1 = Revision.new(document, Content.new(nil), "author", "message", time, nil)
+        m2 = Revision.new(document, Content.new(nil), "author", "message", time, m2)
+
+        {
+          'master' => m2
+        }
+      end
+
+      let :published_revisions do
+        m1 = Revision.new(document, Content.new(nil), "author", "message", time, nil, nil, "m1")
+        m2 = Revision.new(document, Content.new(nil), "author", "message", time, m1, nil, nil, "m2")
+        m3 = Revision.new(document, Content.new(nil), "author", "message", time, m2, nil, nil, "m3")
+
+        p1 = Revision.new(document, Content.new(nil), "author", "message", time, nil, m2, nil, "p1")
+
+        allow(m1).to receive(:commit)
+        allow(m2).to receive(:commit)
+        allow(m3).to receive(:commit)
+        allow(p1).to receive(:commit)
+
+        {
+          'master' => m3,
+          'published' => p1
+        }
+      end
+
+      it "returns false for draft only" do
+        allow(document).to receive(:revisions).and_return(draft_revisions)
+
+        expect(draft_revisions['master'].has_been_promoted?('published')).to be_falsy
+      end
+
+      it "returns true for a later published" do
+        allow(document).to receive(:revisions).and_return(published_revisions)
+
+        expect(published_revisions['master'].previous.has_been_promoted?('published')).to be_truthy
+      end
+
+      it "returns false for a save over a published one" do
+        allow(document).to receive(:revisions).and_return(published_revisions)
+
+        expect(published_revisions['master'].has_been_promoted?('published')).to be_falsy
+      end
     end
   end
 
