@@ -56,6 +56,13 @@ describe Revision do
     expect(revision.root?).to eq(true)
   end
 
+  it "can check equality by id" do
+    rev1 = Revision.new(document, Content.new(nil), "author", "message 1", time, nil, nil, nil, "id1")
+    rev2 = Revision.new(document, Content.new(nil), "author", "message 2", time, nil, nil, nil, "id1")
+
+    expect(rev1).to eq(rev2)
+  end
+
   describe "history links" do
     it "returns previous when set" do
       revision = Revision.new(document, Content.new(nil), "author", "message", time, "prev")
