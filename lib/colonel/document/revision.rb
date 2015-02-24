@@ -139,6 +139,7 @@ module Colonel
     # to  - the final state of the promotion
     def has_been_promoted?(to)
       rev = @document.revisions[to]
+      return false if rev.nil?
 
       rev.has_ancestor?(:previous) do |p_rev|
         p_rev.has_ancestor?(:origin) do |o_rev|
