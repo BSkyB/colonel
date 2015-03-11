@@ -22,7 +22,7 @@ And then execute:
 The Colonel requires at least [elasticsearch](http://www.elasticsearch.org) 1.0 to work.
 
 NOTE: The Colonel currently doesn't work with elasticsearch 1.2 or later, which is a known issue
-that will be fixed soon. (Watch issue [#44](https://github.com/bskyb-commerce/colonel/issues/44))
+that will be fixed. (Watch issue [#44](https://github.com/bskyb-commerce/colonel/issues/44) pull requests welcome)
 
 ## Usage
 
@@ -46,6 +46,16 @@ The `Colonel` module exposes a `config` struct for configuration options
 Colonel.config.storage_path = 'tmp/colonel_storage/'
 Colonel.config.elasticsearch_uri = 'elasticsearch.myapp.com:9200'
 Colonel.config.rugged_backend = backend_instance # optional, see below
+
+```
+
+### Initialization
+
+Before you can use the Colonel, you also need to initialise the search provider, which idempotently
+creates the search index and registers all custom types.
+
+```
+Colonel::ElasticsearchProvider.initialize!
 ```
 
 ### Create or open a Document
@@ -62,14 +72,14 @@ doc = Document.new({title: 'My Item', tags: ['Test', 'Content'], body: 'Some tex
 You can now access the attributes
 
 ```ruby
-doc.title
-# => 'My Item'
+doc.content.title
+# => 'My Iem'
 
-doc.tags[1]
+doc.content.tags[1]
 # => 'Content'
 
-doc.body = 'Some other text'
-doc.body
+doc.content.body = 'Some other text'
+doc.content.body
 # => 'Some other text'
 
 doc.id
@@ -93,14 +103,14 @@ You now have an document that has a single revision in `master` state (draft). Y
 update the document's content and save again with or without a commit message.
 
 ```ruby
-doc.tags << "Updated"
+doc.content.tags << "Updated"
 doc.save!({ name: 'The Colonel', email: 'colonel@example.com' })
 ```
 
 or
 
 ```ruby
-doc.tags << "Updated"
+doc.content.tags << "Updated"
 doc.save!({ name: 'The Colonel', email: 'colonel@example.com' }, 'My comment for the update.')
 ```
 
@@ -112,7 +122,7 @@ To open the document later do
 
 ```ruby
 Document.open('b1ff909250a5fda83042abc86f7033f9')
-# => #<Document ...>
+# => #<Document: ...>
 ```
 
 ### Promoting draft to published
@@ -164,7 +174,7 @@ pagination.
 
 ```ruby
 results = Document.list(state: 'published', size: 10, from: 50, sort: {updated_at: 'desc'})
-# => #<ElasticsearchResultSet ...>
+# => #<ElasticsearchResultSet: ...>
 
 results.total # => 67
 results.each do |result|
@@ -206,6 +216,29 @@ Document.search('How to use the Colonel?', { size: 10 })
 The query can be either a string or a Hash. It gets passed through to the underlying Elasticsearch
 index, so you can use all the power that [Elasticsearch provides]().
 
+### Custom content type
+
+In most cases you'd want to create your own content type. That allows you to customize the Elasticsearch
+indexing options
+
+```ruby
+Document = Colonel::DocumentType.new('document') do
+  index_name 'colonel-app'
+
+  attributes_mapping({
+    tags: {
+      type: "string",
+      index: "not_analyzed", # we only want exact matches
+      boost: 2 # boost tags when searching
+    },
+    slug: {
+      type: "string"
+      index: "not_analyzed"
+    }
+  })
+end
+```
+
 ### Custom indexing scopes
 
 For some workflows, the default indexing the Colonel does is not enough and you need your own special "revision logs".
@@ -217,7 +250,7 @@ two queries to do the job.
 In this case it's much better to define a custom scope for the events, like this
 
 ```ruby
-class DocumentItem < Colonel::ContentItem
+DocumentType = Colonel::DocumentType.new('my_type') do
   ...
   scope 'visible', on: [:save, :promotion], to: ['published', 'archived']
 ```
@@ -229,35 +262,14 @@ The visible scope will therefore include just the latest of all the selected cha
 Then you can search with the `visible` scope and narrow the results by state
 
 ```ruby
-DocumentItem.search('state:published', scope: 'visible')
-```
-
-### Custom content type
-
-In most cases you'd want to create your own content type. That allows you to customize the Elasticsearch
-indexing options
-
-```ruby
-Document = Colonel::DocumentType.new('document')
-  index_name 'colonel-app'
-
-  attributes_mapping do
-    {
-      tags: {
-        type: "string",
-        index: "not_analyzed", # we only want exact matches
-        boost: 2 # boost tags when searching
-      },
-      slug: {
-        type: "string"
-        index: "not_analyzed"
-      }
-    }
-  end
-end
+DocumentType.search('state:published', scope: 'visible')
 ```
 
 ### Alternative backends
+
+> This feature is still fairly experimental. It is used in production and works perfectly fine, but
+you may have some difficulties installing dependencies and building all the binary extensions needed. Consider yourself
+warned.
 
 Internally, Colonel uses rugged for document storage. Apart from the default file storage it supports
 alternative storage backends for rugged. For example, you could use [rugged-redis](http://github.com/redbadger/rugged-redis) to store to redis.
