@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 elasticsearch:
-  version: 1.0.0
+  version: 1.5.0
   environment:
     - variable: ES_MIN_MEM
       value: 750m
