@@ -30,7 +30,7 @@ module Colonel
           state = ref.name.split("/").last
           next if state == "root"
 
-          document.history.each do |r|
+          document.history(state).each do |r|
             event = {
               name: r.type,
               to: state

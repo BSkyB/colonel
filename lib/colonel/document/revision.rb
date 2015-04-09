@@ -41,6 +41,10 @@ module Colonel
       @origin = origin.is_a?(String) ? Revision.from_commit(@document, origin) : origin
     end
 
+    def inspect
+      "<Revision:#{id} type:#{type} previous:#{previous && previous.id} origin:#{origin && origin.id} message:#{message} author:#{author}>"
+    end
+
     # Public: id of the revision - a 40 character hexadecimal number which is the sha1 hash of the
     # underlying git commit.
     def id
@@ -188,10 +192,6 @@ module Colonel
       commit_options[:update_ref] = update_ref if update_ref
 
       @id = Rugged::Commit.create(repository, commit_options)
-    end
-
-    def inspect
-      "<Revision:#{id}>"
     end
 
     # Class methods
