@@ -301,7 +301,7 @@ stages in the publishing pipeline.
 Listing history *always* follows only the first parent of a commit and stops with the first commit
 that only has one parent, thus staying in a branch you ask for. That way you can list the history
 of just the published versions easily. As a trade-off, it's a bit more involved to find a revision
-in `maser` that was published (see example above).
+in `master` that was published (see example above).
 
 ### Indexing & search
 
